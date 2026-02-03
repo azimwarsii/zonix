@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 export default function CreateScreen() {
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
-            <Header rightContent="profile" />
+            <Header />
             <ThemedView style={styles.content}>
                 <ThemedText type="title">Create</ThemedText>
             </ThemedView>

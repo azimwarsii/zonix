@@ -1,4 +1,5 @@
 import Logo from '@/components/Logo';
+import { useAuth } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerItem } from '@react-navigation/drawer';
 import { useRouter, useSegments } from 'expo-router';
@@ -14,6 +15,7 @@ export default function CustomDrawerContent(props: any) {
     const router = useRouter();
     const segments = useSegments() as string[];
     const insets = useSafeAreaInsets();
+    const { presentPaywall } = useAuth();
 
     const navigateTo = (route: string) => {
         // Navigate to the tab screen
@@ -21,7 +23,7 @@ export default function CustomDrawerContent(props: any) {
     };
 
     return (
-        <View style={{ flex: 1, backgroundColor: '#000', borderRightWidth: 1, borderRightColor: '#817299' }}>
+        <View style={{ flex: 1, backgroundColor: '#000', borderRightWidth: 1, borderRightColor: '#aa48b7' }}>
             <View
                 {...props}
                 contentContainerStyle={{ paddingTop: 0 }}
@@ -40,43 +42,43 @@ export default function CustomDrawerContent(props: any) {
                 <View style={styles.menuSection}>
                     <DrawerItem
                         label="Explore"
-                        labelStyle={[styles.drawerLabel, (segments.length === 0 || segments.includes('explore') || (segments.includes('(tabs)') && !segments.includes('chat') && !segments.includes('community') && !segments.includes('my-ai') && !segments.includes('create'))) && { color: '#817299' }]}
-                        icon={({ size }) => <Ionicons name={(segments.length === 0 || segments.includes('explore') || (segments.includes('(tabs)') && !segments.includes('chat') && !segments.includes('community') && !segments.includes('my-ai') && !segments.includes('create'))) ? "compass" : "compass-outline"} size={size} color={(segments.length === 0 || segments.includes('explore') || (segments.includes('(tabs)') && !segments.includes('chat') && !segments.includes('community') && !segments.includes('my-ai') && !segments.includes('create'))) ? '#817299' : '#fff'} />}
+                        labelStyle={[styles.drawerLabel, (segments.length === 0 || segments.includes('explore') || (segments.includes('(tabs)') && !segments.includes('chat') && !segments.includes('community') && !segments.includes('my-ai') && !segments.includes('create'))) && { color: '#aa48b7' }]}
+                        icon={({ size }) => <Ionicons name={(segments.length === 0 || segments.includes('explore') || (segments.includes('(tabs)') && !segments.includes('chat') && !segments.includes('community') && !segments.includes('my-ai') && !segments.includes('create'))) ? "compass" : "compass-outline"} size={size} color={(segments.length === 0 || segments.includes('explore') || (segments.includes('(tabs)') && !segments.includes('chat') && !segments.includes('community') && !segments.includes('my-ai') && !segments.includes('create'))) ? '#aa48b7' : '#fff'} />}
                         onPress={() => navigateTo('/(tabs)')}
                         style={[styles.drawerItem, (segments.length === 0 || segments.includes('explore') || (segments.includes('(tabs)') && !segments.includes('chat') && !segments.includes('community') && !segments.includes('my-ai') && !segments.includes('create'))) && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
                     />
                     <DrawerItem
                         label="Chats"
-                        labelStyle={[styles.drawerLabel, segments.includes('chat') && { color: '#817299' }]}
-                        icon={({ size }) => <Ionicons name={segments.includes('chat') ? "chatbubble-ellipses" : "chatbubble-ellipses-outline"} size={size} color={segments.includes('chat') ? '#817299' : '#fff'} />}
+                        labelStyle={[styles.drawerLabel, segments.includes('chat') && { color: '#aa48b7' }]}
+                        icon={({ size }) => <Ionicons name={segments.includes('chat') ? "chatbubble-ellipses" : "chatbubble-ellipses-outline"} size={size} color={segments.includes('chat') ? '#aa48b7' : '#fff'} />}
                         onPress={() => navigateTo('/(tabs)/chat')}
                         style={[styles.drawerItem, segments.includes('chat') && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
                     />
                     <DrawerItem
                         label="Create"
-                        labelStyle={[styles.drawerLabel, segments.includes('create') && { color: '#817299' }]}
-                        icon={({ size }) => <Ionicons name={segments.includes('create') ? "add-circle" : "add-circle-outline"} size={size} color={segments.includes('create') ? '#817299' : '#fff'} />}
+                        labelStyle={[styles.drawerLabel, segments.includes('create') && { color: '#aa48b7' }]}
+                        icon={({ size }) => <Ionicons name={segments.includes('create') ? "add-circle" : "add-circle-outline"} size={size} color={segments.includes('create') ? '#aa48b7' : '#fff'} />}
                         onPress={() => navigateTo('/(tabs)/create')}
                         style={[styles.drawerItem, segments.includes('create') && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
                     />
                     <DrawerItem
                         label="My AI"
-                        labelStyle={[styles.drawerLabel, segments.includes('my-ai') && { color: '#817299' }]}
-                        icon={({ size }) => <Ionicons name={segments.includes('my-ai') ? "sparkles" : "sparkles-outline"} size={size} color={segments.includes('my-ai') ? '#817299' : '#fff'} />}
+                        labelStyle={[styles.drawerLabel, segments.includes('my-ai') && { color: '#aa48b7' }]}
+                        icon={({ size }) => <Ionicons name={segments.includes('my-ai') ? "sparkles" : "sparkles-outline"} size={size} color={segments.includes('my-ai') ? '#aa48b7' : '#fff'} />}
                         onPress={() => navigateTo('/(tabs)/my-ai')}
                         style={[styles.drawerItem, segments.includes('my-ai') && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
                     />
                     <DrawerItem
                         label="Feed"
-                        labelStyle={[styles.drawerLabel, segments.includes('feed') && { color: '#817299' }]}
-                        icon={({ size }) => <Ionicons name={segments.includes('feed') ? "play" : "play-outline"} size={size} color={segments.includes('feed') ? '#817299' : '#fff'} />}
+                        labelStyle={[styles.drawerLabel, segments.includes('feed') && { color: '#aa48b7' }]}
+                        icon={({ size }) => <Ionicons name={segments.includes('feed') ? "play" : "play-outline"} size={size} color={segments.includes('feed') ? '#aa48b7' : '#fff'} />}
                         onPress={() => navigateTo('/feed')}
                         style={[styles.drawerItem, segments.includes('feed') && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
                     />
                     <DrawerItem
                         label="Community"
-                        labelStyle={[styles.drawerLabel, segments.includes('community') && { color: '#817299' }]}
-                        icon={({ size }) => <Ionicons name={segments.includes('community') ? "people" : "people-outline"} size={size} color={segments.includes('community') ? '#817299' : '#fff'} />}
+                        labelStyle={[styles.drawerLabel, segments.includes('community') && { color: '#aa48b7' }]}
+                        icon={({ size }) => <Ionicons name={segments.includes('community') ? "people" : "people-outline"} size={size} color={segments.includes('community') ? '#aa48b7' : '#fff'} />}
                         onPress={() => navigateTo('/(tabs)/community')}
                         style={[styles.drawerItem, segments.includes('community') && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
                     />
@@ -84,7 +86,7 @@ export default function CustomDrawerContent(props: any) {
 
                 {/* Upgrade Button */}
                 <View style={styles.upgradeContainer}>
-                    <TouchableOpacity style={styles.upgradeButton}>
+                    <TouchableOpacity style={styles.upgradeButton} onPress={presentPaywall}>
                         <Ionicons name="diamond-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
                         <Text style={styles.upgradeText}>Upgrade</Text>
                     </TouchableOpacity>
@@ -155,7 +157,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     upgradeButton: {
-        backgroundColor: '#817299', // Updated color
+        backgroundColor: '#aa48b7', // Updated color
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',

@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const { width } = Dimensions.get('window');
 const cardWidth = (width - 28) / 2; // Adjusted for 10px padding on sides and 8px gap between cards
 
-const CATEGORIES = ['All', 'Expert', 'Profecient', 'Competent', 'Novice'];
+const CATEGORIES = ['All', 'Specialist', 'Expert', 'Profecient', 'Competent'];
 
 const FEATURED_CARDS = [
   {
@@ -168,17 +168,17 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#817299',
+    borderColor: '#aa48b7',
   },
   loginText: {
-    color: '#817299',
+    color: '#aa48b7',
     fontWeight: '600',
   },
   joinButton: {
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 6,
-    backgroundColor: '#817299',
+    backgroundColor: '#aa48b7',
   },
   joinText: {
     color: '#fff',
@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
     marginTop: -4,
   },
   adButton: {
-    backgroundColor: '#817299',
+    backgroundColor: '#aa48b7',
     paddingHorizontal: 24,
     paddingVertical: 10,
     borderRadius: 20,

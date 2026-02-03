@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>CLIENT_ID</key>
+	<string>1089756321378-48a5istasmq0hpakbu5nqo62o7k1lc9e.apps.googleusercontent.com</string>
+	<key>REVERSED_CLIENT_ID</key>
+	<string>com.googleusercontent.apps.1089756321378-48a5istasmq0hpakbu5nqo62o7k1lc9e</string>
+	<key>API_KEY</key>
+	<string>AIzaSyCy71GsaZlhDwFxZFQpQYpUuy5UUN8mOYs</string>
+	<key>GCM_SENDER_ID</key>
+	<string>1089756321378</string>
+	<key>PLIST_VERSION</key>
+	<string>1</string>
+	<key>BUNDLE_ID</key>
+	<string>com.zonix.zonix</string>
+	<key>PROJECT_ID</key>
+	<string>zonix-36dc1</string>
+	<key>STORAGE_BUCKET</key>
+	<string>zonix-36dc1.firebasestorage.app</string>
+	<key>IS_ADS_ENABLED</key>
+	<false></false>
+	<key>IS_ANALYTICS_ENABLED</key>
+	<false></false>
+	<key>IS_APPINVITE_ENABLED</key>
+	<true></true>
+	<key>IS_GCM_ENABLED</key>
+	<true></true>
+	<key>IS_SIGNIN_ENABLED</key>
+	<true></true>
+	<key>GOOGLE_APP_ID</key>
+	<string>1:1089756321378:ios:9c6d647d60aaae6cbee33b</string>
+</dict>
+</plist>
