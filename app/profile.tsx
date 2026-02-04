@@ -176,14 +176,14 @@ export default function ProfileScreen() {
             {/* Get Started Card */}
             <View style={styles.card}>
                 <ThemedText style={styles.cardTitle}>Get Started</ThemedText>
-                <ThemedText style={styles.cardSubtitle}>Sign up to get 50 free coins</ThemedText>
+                <ThemedText style={styles.cardSubtitle}>Sign up to get 1000 free coins</ThemedText>
 
                 <View style={styles.promoContainer}>
                     <ThemedText style={styles.promoTextBold}>Create a free account and get 50 coins!</ThemedText>
 
                     <View style={styles.benefitItem}>
                         <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
-                        <ThemedText style={styles.benefitText}>50 free coins upon signup</ThemedText>
+                        <ThemedText style={styles.benefitText}>1000 free coins upon signup</ThemedText>
                     </View>
                     <View style={styles.benefitItem}>
                         <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />

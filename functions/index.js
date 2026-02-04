@@ -343,3 +343,108 @@ exports.onUserPlanUpgrade = functions.firestore.document('users/{userId}').onUpd
     }
     return null;
 });
+
+/**
+ * Callable function to create a new AI Coach.
+ * Deducts 5 credits from the user and initializes the coach document.
+ */
+exports.createCoach = functions.https.onCall(async (data, context) => {
+    // 1. Ensure user is authenticated
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to create coaches.');
+    }
+
+    const uid = context.auth.uid;
+    const {
+        name,
+        type,
+        portraitUrl,
+        specialization,
+        yearsOfExpertise,
+        essence,
+        advanced,
+        knowledge
+    } = data;
+
+    // 2. Validate basic required data
+    if (!name || !type || !specialization || !essence) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing required coach details.');
+    }
+
+    console.log(`User ${uid} attempting to create a coach: ${name} (${type})`);
+
+    try {
+        const result = await admin.firestore().runTransaction(async (transaction) => {
+            const userRef = admin.firestore().collection('users').doc(uid);
+            const userDoc = await transaction.get(userRef);
+
+            if (!userDoc.exists) {
+                throw new functions.https.HttpsError('not-found', 'User profile not found.');
+            }
+
+            const userData = userDoc.data();
+            const currentCredits = userData.credits || 0;
+
+            // 3. Check for sufficient credits
+            if (currentCredits < 5) {
+                throw new functions.https.HttpsError('failed-precondition', 'Insufficient credits. Creating a coach costs 5 credits.');
+            }
+
+            // 4. Create the Coach Document
+            const coachRef = admin.firestore().collection('coaches').doc();
+            const coachData = {
+                id: coachRef.id,
+                name,
+                type,
+                creatorId: uid,
+                portraitUrl: portraitUrl || null,
+                specialization,
+                yearsOfExpertise: type === 'clone' ? (yearsOfExpertise || 0) : null,
+                essence,
+                advanced: {
+                    primaryGreeting: advanced?.primaryGreeting || "Hello! How can I help you today?",
+                    whoAmI: type === 'imaginative' ? (advanced?.whoAmI || "") : null
+                },
+                knowledge: {
+                    textRecords: knowledge?.textRecords || "",
+                    googleAuth: {
+                        access_token: knowledge?.googleAuth?.access_token || null,
+                        refresh_token: knowledge?.googleAuth?.refresh_token || null
+                    },
+                    lastSyncAt: null
+                },
+                stats: {
+                    likes: 0,
+                    follows: 0,
+                    chats: 0
+                },
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            };
+
+            transaction.set(coachRef, coachData);
+
+            // 5. Deduct Credits
+            transaction.update(userRef, {
+                credits: admin.firestore.FieldValue.increment(-5),
+                updatedAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+
+            console.log(`Successfully created coach ${coachRef.id} and deducted 5 credits from user ${uid}.`);
+
+            return {
+                success: true,
+                coachId: coachRef.id,
+                remainingCredits: currentCredits - 5
+            };
+        });
+
+        return result;
+    } catch (error) {
+        console.error('Error creating coach:', error);
+        if (error instanceof functions.https.HttpsError) {
+            throw error;
+        }
+        throw new functions.https.HttpsError('internal', 'An error occurred while creating your coach. Please try again.');
+    }
+});

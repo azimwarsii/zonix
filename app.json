@@ -62,10 +62,18 @@
         "expo-build-properties",
         {
           "ios": {
+            "deploymentTarget": "15.5",
             "useModularHeaders": true,
             "useFrameworks": "static",
             "buildReactNativeFromSource": true
           }
+        }
+      ],
+      [
+        "react-native-vision-camera",
+        {
+          "cameraPermissionText": "Zonix needs access to your camera to take a portrait photo.",
+          "enableFrameProcessors": true
         }
       ]
     ],

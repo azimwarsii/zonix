@@ -29,13 +29,20 @@ Documents representing AI coaches.
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
+| `id` | string | Unique identifier (Auto-generated). |
+| `type` | string | `clone` or `imaginative`. |
+| `creatorId` | string | UID of creator. |
 | `name` | string | Coach name. |
-| `persona` | string | AI personality definition. |
-| `creatorId` | string | Reference to the `uid` of the user who created it. |
-| `likes` | number | Total likes count. |
-| `follows` | number | Total followers count. |
-| `chatsCount` | number | Total number of people who have chatted with this coach. |
-| `ragConfig` | object | Knowledge base configuration. |
+| `portraitUrl` | string | Storage URL for capture (Clones only). |
+| `specialization` | string | e.g. "Software Engineering". |
+| `yearsOfExpertise` | number | level (Clones only). |
+| `essence` | map | `{ talkStyle, temperament, focusArea, presence }`. |
+| `advanced.primaryGreeting` | string | Initial message. |
+| `advanced.whoAmI` | string | Bio/Identity (Visionary only). |
+| `knowledge.textRecords` | string | Manual facts/rules. |
+| `knowledge.googleAuth` | map | `{ access_token, refresh_token }`. |
+| `knowledge.lastSyncAt` | timestamp | Sync tracking. |
+| `stats` | map | `{ likes, follows, chats }`. |
 
 ---
 

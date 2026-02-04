@@ -1,13 +1,23 @@
+import AuthModal from '@/components/AuthModal';
+import FaceDetectorCamera from '@/components/FaceDetectorCamera';
 import Header from '@/components/Header';
 import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/Fonts';
+import { useAuth } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import functions from '@react-native-firebase/functions';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
+    Alert,
     Dimensions,
     FlatList,
+    Keyboard,
+    KeyboardAvoidingView,
     Modal,
+    Platform,
     ScrollView,
     StyleSheet,
     Text,
@@ -16,6 +26,8 @@ import {
     View
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 
@@ -48,28 +60,200 @@ export default function CreateScreen() {
     const [creationType, setCreationType] = useState<'clone' | 'imaginative'>('clone');
     const [name, setName] = useState('');
     const [experience, setExperience] = useState(0);
-    const [expertise, setExpertise] = useState(EXPERTISE_OPTIONS[0]);
+    const [expertise, setExpertise] = useState<string | null>(null);
     const [showExpertisePicker, setShowExpertisePicker] = useState(false);
+    const [showCamera, setShowCamera] = useState(false);
+    const [portraitImage, setPortraitImage] = useState<string | null>(null);
+    const [activeAdvancedModal, setActiveAdvancedModal] = useState<string | null>(null);
+    const [knowledgeBaseText, setKnowledgeBaseText] = useState('');
+    const [googleAuth, setGoogleAuth] = useState<{ access_token: string | null, refresh_token: string | null } | null>(null);
+    const [primaryGreeting, setPrimaryGreeting] = useState('');
+    const [whoAmI, setWhoAmI] = useState('');
+    const [showAdvanced, setShowAdvanced] = useState(true);
+    const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+    const [showAuthModal, setShowAuthModal] = useState(false);
+    const [isCreating, setIsCreating] = useState(false);
+    const [validationErrors, setValidationErrors] = useState<string[]>([]);
+
+    const router = useRouter();
+    const { user, userData } = useAuth();
+
+    useEffect(() => {
+        const keyboardDidShowListener = Keyboard.addListener(
+            'keyboardDidShow',
+            () => setIsKeyboardVisible(true)
+        );
+        const keyboardDidHideListener = Keyboard.addListener(
+            'keyboardDidHide',
+            () => setIsKeyboardVisible(false)
+        );
+
+        return () => {
+            keyboardDidHideListener.remove();
+            keyboardDidShowListener.remove();
+        };
+    }, []);
 
     // Essence states
-    const [essences, setEssences] = useState({
-        "Talk Style": "Socratic",
-        "Temperament": "Stoic",
-        "Focus Area": "Growth",
-        "Approach": "Pragmatic",
-        "Insight Level": "Meta-Cognitive",
-        "Presence": "Authority"
+    const [essences, setEssences] = useState<Record<string, string | null>>({
+        "Talk Style": null,
+        "Temperament": null,
+        "Focus Area": null,
+        "Approach": null,
+        "Insight Level": null,
+        "Presence": null
     });
 
     const [activeEssencePicker, setActiveEssencePicker] = useState<string | null>(null);
 
     const handleEssenceSelect = (label: string, value: string) => {
         setEssences(prev => ({ ...prev, [label]: value }));
+        setValidationErrors(prev => prev.filter(err => err !== label));
         setActiveEssencePicker(null);
     };
 
+    const linkGoogleDrive = async () => {
+        try {
+            await GoogleSignin.hasPlayServices();
+            // Request specific read-only scopes
+            const hasScopes = await GoogleSignin.addScopes({
+                scopes: [
+                    'https://www.googleapis.com/auth/drive.readonly',
+                    'https://www.googleapis.com/auth/documents.readonly'
+                ]
+            });
 
-    const experienceRange = Array.from({ length: 51 }, (_, i) => i);
+            if (hasScopes) {
+                const tokens = await GoogleSignin.getTokens();
+                // Note: refresh_token is typically only available via server-side exchange of serverAuthCode
+                // but we'll store what we can. 
+                setGoogleAuth({
+                    access_token: tokens.accessToken,
+                    refresh_token: null
+                });
+                Alert.alert("Access Granted", "Knowledge base is now linked to your Google Drive.");
+            }
+        } catch (error: any) {
+            console.error('Google Auth Error:', error);
+            Alert.alert("Link Failed", "Could not connect to Google Drive. Please try again.");
+        }
+    };
+
+
+    const handlePhotoCapture = (path: string) => {
+        setPortraitImage(`file://${path}`);
+        setShowCamera(false);
+    };
+
+    const resetForm = () => {
+        setCurrentStep(1);
+        setCreationType('clone');
+        setName('');
+        setExperience(0);
+        setExpertise(null);
+        setPortraitImage(null);
+        setActiveAdvancedModal(null);
+        setKnowledgeBaseText('');
+        setGoogleAuth(null);
+        setPrimaryGreeting('');
+        setWhoAmI('');
+        setValidationErrors([]);
+        setEssences({
+            "Talk Style": null,
+            "Temperament": null,
+            "Focus Area": null,
+            "Approach": null,
+            "Insight Level": null,
+            "Presence": null
+        });
+    };
+
+    const handleNext = () => {
+        if (!user) {
+            setShowAuthModal(true);
+            return;
+        }
+
+        // Validate everything for the final forge call, or just move forward
+        if (currentStep < 6) {
+            setCurrentStep(currentStep + 1);
+        } else {
+            handleCreateCoach();
+        }
+    };
+
+    const validateForm = () => {
+        const errors: string[] = [];
+        if (!name.trim()) errors.push('name');
+        if (creationType === 'clone' && !portraitImage) errors.push('portrait');
+        if (!expertise) errors.push('expertise');
+
+        Object.keys(essences).forEach(key => {
+            if (!essences[key]) errors.push(key);
+        });
+
+        setValidationErrors(errors);
+        return errors.length === 0;
+    };
+
+    const handleCreateCoach = async () => {
+        if (!validateForm()) {
+            Alert.alert('Missing Fields', 'Please fill in all highlighted fields before forging your coach.');
+            return;
+        }
+
+        setIsCreating(true);
+        try {
+            console.log('Calling createCoach Cloud Function...');
+            const result = (await functions().httpsCallable('createCoach')({
+                name,
+                type: creationType,
+                portraitUrl: portraitImage,
+                specialization: expertise,
+                yearsOfExpertise: experience,
+                essence: essences,
+                advanced: {
+                    primaryGreeting,
+                    whoAmI
+                },
+                knowledge: {
+                    textRecords: knowledgeBaseText,
+                    googleAuth
+                }
+            })) as any;
+
+            if (result.data.success) {
+                Alert.alert(
+                    'Coach Created!',
+                    `Your coach "${name}" has been forged. 5 credits have been deducted.`,
+                    [{
+                        text: 'Great!',
+                        onPress: () => {
+                            resetForm();
+                            router.push('/(tabs)');
+                        }
+                    }]
+                );
+            }
+        } catch (error: any) {
+            console.error('Create Coach Error:', error);
+            Alert.alert(
+                'Creation Failed',
+                error.message || 'An unexpected error occurred. Please try again later.'
+            );
+        } finally {
+            setIsCreating(false);
+        }
+    };
+
+    if (showCamera) {
+        return (
+            <FaceDetectorCamera
+                onCapture={handlePhotoCapture}
+                onClose={() => setShowCamera(false)}
+            />
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -108,61 +292,58 @@ export default function CreateScreen() {
                 {creationType === 'clone' && (
                     <View style={styles.imageUploadSection}>
                         <ThemedText style={styles.sectionLabel}>Portrait Selection</ThemedText>
-                        <TouchableOpacity style={styles.imagePlaceholder}>
-                            <Ionicons name="camera-outline" size={40} color="#aa48b7" />
-                            <ThemedText style={styles.imagePlaceholderText}>Upload your portrait</ThemedText>
+                        <TouchableOpacity
+                            style={[
+                                styles.imagePlaceholder,
+                                validationErrors.includes('portrait') && styles.errorBorder
+                            ]}
+                            onPress={() => setShowCamera(true)}
+                        >
+                            {portraitImage ? (
+                                <Image
+                                    source={{ uri: portraitImage }}
+                                    style={styles.capturedImage}
+                                    contentFit="cover"
+                                />
+                            ) : (
+                                <>
+                                    <Ionicons name="camera-outline" size={40} color={validationErrors.includes('portrait') ? '#ff4444' : "#aa48b7"} />
+                                    <ThemedText style={[styles.imagePlaceholderText, validationErrors.includes('portrait') && { color: '#ff4444' }]}>Capture live photo</ThemedText>
+                                </>
+                            )}
                         </TouchableOpacity>
                     </View>
                 )}
 
                 {/* Character Name Section */}
                 <View style={styles.inputSection}>
-                    <ThemedText style={styles.sectionLabel}>{creationType === 'clone' ? 'Your Name' : 'Coach Identity'}</ThemedText>
-                    <View style={styles.inputWrapper}>
+                    <ThemedText style={[styles.sectionLabel, validationErrors.includes('name') && { color: '#ff4444' }]}>{creationType === 'clone' ? 'Your Name' : 'Coach Identity'}</ThemedText>
+                    <View style={[styles.inputWrapper, validationErrors.includes('name') && styles.errorBorder]}>
                         <TextInput
                             style={styles.textInput}
                             placeholder={creationType === 'clone' ? "Enter your full name" : "e.g. Master Strategist"}
                             placeholderTextColor="#666"
                             value={name}
-                            onChangeText={setName}
+                            onChangeText={(text) => {
+                                setName(text);
+                                if (text.trim()) setValidationErrors(prev => prev.filter(err => err !== 'name'));
+                            }}
                         />
                     </View>
                 </View>
 
                 {/* Expertise Dropdown */}
                 <View style={styles.inputSection}>
-                    <ThemedText style={styles.sectionLabel}>Specialization</ThemedText>
+                    <ThemedText style={[styles.sectionLabel, validationErrors.includes('expertise') && { color: '#ff4444' }]}>Specialization</ThemedText>
                     <TouchableOpacity
-                        style={styles.inputWrapper}
+                        style={[styles.inputWrapper, validationErrors.includes('expertise') && styles.errorBorder]}
                         onPress={() => setShowExpertisePicker(true)}
                     >
                         <ThemedText style={[styles.textInput, !expertise && { color: '#666' }]}>
                             {expertise || "Select Expertise"}
                         </ThemedText>
-                        <Ionicons name="chevron-down" size={20} color="#aa48b7" />
+                        <Ionicons name="chevron-down" size={20} color={validationErrors.includes('expertise') ? '#ff4444' : "#aa48b7"} />
                     </TouchableOpacity>
-                </View>
-
-                {/* Experience Section */}
-                <View style={styles.inputSection}>
-                    <ThemedText style={styles.sectionLabel}>Years of Expertise</ThemedText>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.horizontalScrollContainer}
-                    >
-                        {experienceRange.map((val) => (
-                            <TouchableOpacity
-                                key={val}
-                                onPress={() => setExperience(val)}
-                                style={[styles.ageItem, val === experience && styles.activeAgeItem]}
-                            >
-                                <Text style={[styles.ageText, val === experience && styles.activeAgeText]}>
-                                    {val}+
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
-                    </ScrollView>
                 </View>
 
                 {/* Personality Details Grid */}
@@ -176,12 +357,14 @@ export default function CreateScreen() {
                                 label="Talk Style"
                                 value={essences["Talk Style"]}
                                 icon="chatbubbles-outline"
+                                error={validationErrors.includes("Talk Style")}
                                 onPress={() => setActiveEssencePicker("Talk Style")}
                             />
                             <PersonalityCard
                                 label="Temperament"
                                 value={essences["Temperament"]}
                                 icon="shield-half-outline"
+                                error={validationErrors.includes("Temperament")}
                                 onPress={() => setActiveEssencePicker("Temperament")}
                             />
                         </View>
@@ -190,12 +373,14 @@ export default function CreateScreen() {
                                 label="Focus Area"
                                 value={essences["Focus Area"]}
                                 icon="trending-up-outline"
+                                error={validationErrors.includes("Focus Area")}
                                 onPress={() => setActiveEssencePicker("Focus Area")}
                             />
                             <PersonalityCard
                                 label="Approach"
                                 value={essences["Approach"]}
                                 icon="construct-outline"
+                                error={validationErrors.includes("Approach")}
                                 onPress={() => setActiveEssencePicker("Approach")}
                             />
                         </View>
@@ -204,62 +389,78 @@ export default function CreateScreen() {
                                 label="Insight Level"
                                 value={essences["Insight Level"]}
                                 icon="eye-outline"
+                                error={validationErrors.includes("Insight Level")}
                                 onPress={() => setActiveEssencePicker("Insight Level")}
                             />
                             <PersonalityCard
                                 label="Presence"
                                 value={essences["Presence"]}
                                 icon="ribbon-outline"
+                                error={validationErrors.includes("Presence")}
                                 onPress={() => setActiveEssencePicker("Presence")}
                             />
                         </View>
                     </View>
                 </View>
 
-                {/* Advanced Details Accordion Placeholder */}
-                <TouchableOpacity style={styles.accordionHeader}>
-                    <ThemedText style={styles.accordionTitle}>Advanced Details (optional)</ThemedText>
-                    <Ionicons name="chevron-up" size={20} color="#666" />
+                {/* Advanced Details Accordion */}
+                <TouchableOpacity
+                    style={styles.accordionHeader}
+                    onPress={() => setShowAdvanced(!showAdvanced)}
+                >
+                    <ThemedText style={styles.accordionTitle}>Advanced Details</ThemedText>
+                    <Ionicons name={showAdvanced ? "chevron-down" : "chevron-up"} size={20} color="#666" />
                 </TouchableOpacity>
 
-                {/* Autocomplete Row */}
-                <View style={styles.advancedItem}>
-                    <View style={{ flex: 1 }}>
-                        <ThemedText style={styles.advancedLabel}>Autocomplete With AI</ThemedText>
-                        <ThemedText style={styles.advancedSubLabel}>Let our AI complete empty fields</ThemedText>
+                {showAdvanced && (
+                    <View>
+                        <TouchableOpacity
+                            style={styles.actionItem}
+                            onPress={() => setActiveAdvancedModal('Primary Greeting')}
+                        >
+                            <ThemedText style={styles.actionLabel}>Primary Greeting</ThemedText>
+                            <Ionicons name="pencil-sharp" size={18} color="#666" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.actionItem}
+                            onPress={() => setActiveAdvancedModal('Knowledge Base')}
+                        >
+                            <ThemedText style={styles.actionLabel}>Knowledge Base</ThemedText>
+                            <Ionicons name="pencil-sharp" size={18} color="#666" />
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.actionItem}
+                            onPress={() => setActiveAdvancedModal('Who Am I?')}
+                        >
+                            <ThemedText style={styles.actionLabel}>Who Am I ?</ThemedText>
+                            <Ionicons name="pencil-sharp" size={18} color="#666" />
+                        </TouchableOpacity>
                     </View>
-                    <View style={styles.aiButton}>
-                        <Ionicons name="sparkles" size={18} color="#666" />
-                    </View>
-                </View>
-
-                {/* Action Items */}
-                <TouchableOpacity style={styles.actionItem}>
-                    <ThemedText style={styles.actionLabel}>Knowledge Base & Experience</ThemedText>
-                    <Ionicons name="pencil-sharp" size={18} color="#666" />
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.actionItem}>
-                    <ThemedText style={styles.actionLabel}>Primary Greeting</ThemedText>
-                    <Ionicons name="pencil-sharp" size={18} color="#666" />
-                </TouchableOpacity>
+                )}
             </ScrollView>
 
             {/* Bottom Navigation */}
             <View style={styles.bottomBar}>
-                <TouchableOpacity style={styles.nextButton}>
+                <TouchableOpacity
+                    style={[styles.nextButton, (isCreating || !name) && { opacity: 0.7 }]}
+                    onPress={handleNext}
+                    disabled={isCreating}
+                >
                     <LinearGradient
                         colors={['#aa48b7', '#4a148c']}
                         start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 0 }}
-                        style={styles.gradientButton}
+                        end={{ x: 1, y: 1 }}
+                        style={styles.nextGradient}
                     >
-                        <View style={styles.buttonContent}>
-                            <ThemedText style={styles.nextText}>Next</ThemedText>
-                            <View style={styles.creditBadge}>
-                                <ThemedText style={styles.creditText}>5</ThemedText>
-                                <Ionicons name="chatbubble" size={12} color="#fff" style={{ marginLeft: 4 }} />
-                            </View>
+                        <View style={{ alignItems: 'center' }}>
+                            <ThemedText style={styles.nextText}>
+                                {isCreating ? 'FORGING...' : (currentStep === 6 ? 'FORGE AGENT' : 'NEXT')}
+                            </ThemedText>
+                            {!isCreating && currentStep === 6 && (
+                                <Text style={styles.creditDeductionText}>-5 Coins</Text>
+                            )}
                         </View>
+                        {!isCreating && currentStep !== 6 && <Ionicons name="arrow-forward" size={20} color="#fff" style={{ marginLeft: 8 }} />}
                     </LinearGradient>
                 </TouchableOpacity>
             </View>
@@ -281,6 +482,7 @@ export default function CreateScreen() {
                                     style={styles.pickerItem}
                                     onPress={() => {
                                         setExpertise(item);
+                                        setValidationErrors(prev => prev.filter(err => err !== 'expertise'));
                                         setShowExpertisePicker(false);
                                     }}
                                 >
@@ -326,18 +528,133 @@ export default function CreateScreen() {
                     </View>
                 </View>
             </Modal>
+            {/* Advanced Details Modal */}
+            <Modal visible={!!activeAdvancedModal} transparent animationType="slide">
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={{ flex: 1 }}
+                >
+                    <View style={styles.modalContainer}>
+                        <View style={[
+                            styles.modalContent,
+                            {
+                                height: isKeyboardVisible
+                                    ? '90%'
+                                    : (activeAdvancedModal === 'Knowledge Base' ? '80%' : '55%')
+                            }
+                        ]}>
+                            <View style={styles.modalHeader}>
+                                <ThemedText style={styles.modalTitle}>{activeAdvancedModal}</ThemedText>
+                                <TouchableOpacity onPress={() => setActiveAdvancedModal(null)}>
+                                    <Ionicons name="close" size={24} color="#fff" />
+                                </TouchableOpacity>
+                            </View>
+
+                            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
+                                {activeAdvancedModal === 'Primary Greeting' && (
+                                    <View style={styles.modalSection}>
+                                        <ThemedText style={styles.modalSectionLabel}>Greeting Text</ThemedText>
+                                        <TextInput
+                                            style={styles.modalTextArea}
+                                            placeholder="Enter the first thing your coach says..."
+                                            placeholderTextColor="#444"
+                                            multiline
+                                            value={primaryGreeting}
+                                            onChangeText={setPrimaryGreeting}
+                                        />
+                                    </View>
+                                )}
+
+                                {activeAdvancedModal === 'Knowledge Base' && (
+                                    <>
+                                        <View style={styles.modalSection}>
+                                            <ThemedText style={styles.modalSectionLabel}>Text Records</ThemedText>
+                                            <TextInput
+                                                style={styles.modalTextArea}
+                                                placeholder="Paste or write key facts, rules, or data..."
+                                                placeholderTextColor="#444"
+                                                multiline
+                                                value={knowledgeBaseText}
+                                                onChangeText={setKnowledgeBaseText}
+                                            />
+                                        </View>
+                                        <View style={styles.modalSection}>
+                                            <ThemedText style={styles.modalSectionLabel}>Connected Wisdom</ThemedText>
+                                            <TouchableOpacity
+                                                style={[styles.googleLinkButton, googleAuth?.access_token && styles.googleLinkButtonActive]}
+                                                onPress={linkGoogleDrive}
+                                            >
+                                                <Ionicons
+                                                    name={googleAuth?.access_token ? "checkmark-circle" : "logo-google"}
+                                                    size={22}
+                                                    color="#fff"
+                                                    style={{ marginRight: 10 }}
+                                                />
+                                                <ThemedText style={styles.googleLinkText}>
+                                                    {googleAuth?.access_token ? "Google Drive Linked" : "Link Google Drive"}
+                                                </ThemedText>
+                                            </TouchableOpacity>
+
+                                            <View style={styles.infoBox}>
+                                                <Ionicons name="shield-checkmark-outline" size={20} color="#aa48b7" />
+                                                <ThemedText style={styles.infoText}>
+                                                    We only request read-only access to your Drive and Documents. This allows the AI to learn from you and keep its knowledge base synchronized.
+                                                </ThemedText>
+                                            </View>
+                                        </View>
+                                    </>
+                                )}
+
+
+
+                                {activeAdvancedModal === 'Who Am I?' && (
+                                    <View style={styles.modalSection}>
+                                        <ThemedText style={styles.modalSectionLabel}>Bio & Identity</ThemedText>
+                                        <TextInput
+                                            style={styles.modalTextArea}
+                                            placeholder="Define this entity's origin story and ultimate purpose..."
+                                            placeholderTextColor="#444"
+                                            multiline
+                                            value={whoAmI}
+                                            onChangeText={setWhoAmI}
+                                        />
+                                    </View>
+                                )}
+
+                                <TouchableOpacity
+                                    style={styles.saveButton}
+                                    onPress={() => setActiveAdvancedModal(null)}
+                                >
+                                    <LinearGradient
+                                        colors={['#aa48b7', '#4a148c']}
+                                        style={styles.saveButtonGradient}
+                                    >
+                                        <ThemedText style={styles.saveButtonText}>Save Details</ThemedText>
+                                    </LinearGradient>
+                                </TouchableOpacity>
+                            </ScrollView>
+                        </View>
+                    </View>
+                </KeyboardAvoidingView>
+            </Modal>
+
+            <AuthModal
+                isVisible={showAuthModal}
+                onClose={() => setShowAuthModal(false)}
+                mode="signup"
+            />
         </SafeAreaView>
     );
 }
 
-function PersonalityCard({ label, value, icon, onPress }: { label: string, value: string, icon: any, onPress: () => void }) {
+function PersonalityCard({ label, value, icon, error, onPress }: { label: string, value: string | null, icon: any, error?: boolean, onPress: () => void }) {
     return (
-        <TouchableOpacity style={styles.card} onPress={onPress}>
+        <TouchableOpacity style={[styles.card, error && styles.errorBorder]} onPress={onPress}>
             <View style={styles.cardInfo}>
-                <ThemedText style={styles.cardLabel}>{label}</ThemedText>
-                <ThemedText style={styles.cardValue}>{value}</ThemedText>
+                <ThemedText style={[styles.cardLabel, error && { color: '#ff4444' }]}>{label}</ThemedText>
+                <ThemedText style={[styles.cardValue, !value && { color: '#444' }]}>{value || "Select"}</ThemedText>
             </View>
-            <Ionicons name={icon} size={28} color="#aa48b7" style={styles.cardIcon} />
+            <Ionicons name={icon} size={28} color={error ? '#ff4444' : "#aa48b7"} style={styles.cardIcon} />
         </TouchableOpacity>
     );
 }
@@ -455,6 +772,11 @@ const styles = StyleSheet.create({
         color: '#666',
         marginTop: 8,
         fontFamily: Fonts.body,
+    },
+    capturedImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 60,
     },
     inputSection: {
         marginBottom: 24,
@@ -634,10 +956,15 @@ const styles = StyleSheet.create({
         borderRadius: 25,
         overflow: 'hidden',
     },
-    gradientButton: {
+    nextGradient: {
         height: 50,
         justifyContent: 'center',
         alignItems: 'center',
+        flexDirection: 'row',
+    },
+    errorBorder: {
+        borderColor: '#ff4444',
+        borderWidth: 1.5,
     },
     buttonContent: {
         flexDirection: 'row',
@@ -647,6 +974,12 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 18,
         fontFamily: Fonts.bold,
+    },
+    creditDeductionText: {
+        color: 'rgba(255,255,255,0.7)',
+        fontSize: 12,
+        fontFamily: Fonts.regular,
+        marginTop: -2,
     },
     creditBadge: {
         flexDirection: 'row',
@@ -697,5 +1030,93 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: '#ccc',
         fontFamily: Fonts.body,
+    },
+    modalSection: {
+        marginBottom: 24,
+    },
+    modalSectionLabel: {
+        fontSize: 14,
+        fontFamily: Fonts.bold,
+        color: '#888',
+        marginBottom: 10,
+        textTransform: 'uppercase',
+    },
+    modalTextArea: {
+        backgroundColor: '#1a1a1a',
+        borderRadius: 12,
+        padding: 16,
+        color: '#fff',
+        fontSize: 16,
+        fontFamily: Fonts.body,
+        height: 150,
+        textAlignVertical: 'top',
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    modalInputWrapper: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#1a1a1a',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        height: 52,
+        borderWidth: 1,
+        borderColor: '#333',
+    },
+    modalInput: {
+        flex: 1,
+        color: '#fff',
+        fontSize: 16,
+        fontFamily: Fonts.body,
+    },
+    infoBox: {
+        flexDirection: 'row',
+        padding: 12,
+        backgroundColor: 'rgba(170, 72, 183, 0.1)',
+        borderRadius: 12,
+        marginTop: 12,
+        gap: 12,
+        borderWidth: 0.5,
+        borderColor: 'rgba(170, 72, 183, 0.3)',
+    },
+    infoText: {
+        flex: 1,
+        fontSize: 12,
+        color: '#aaa',
+        lineHeight: 18,
+        fontFamily: Fonts.body,
+    },
+    saveButton: {
+        marginTop: 10,
+        marginBottom: 30,
+        borderRadius: 25,
+        overflow: 'hidden',
+    },
+    saveButtonGradient: {
+        height: 50,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    saveButtonText: {
+        color: '#fff',
+        fontSize: 16,
+        fontFamily: Fonts.bold,
+    },
+    googleLinkButton: {
+        backgroundColor: '#4285F4',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 50,
+        borderRadius: 12,
+        marginTop: 10,
+    },
+    googleLinkButtonActive: {
+        backgroundColor: '#34A853',
+    },
+    googleLinkText: {
+        color: '#fff',
+        fontSize: 16,
+        fontFamily: Fonts.bold,
     }
 });
