@@ -127,15 +127,15 @@ const styles = StyleSheet.create({
     },
     name: {
         color: '#fff',
-        fontSize: 26,
+        fontSize: 28,
         marginBottom: 4,
         fontFamily: Fonts.bold,
     },
     description: {
         color: '#aa48b7',
-        fontSize: 14,
+        fontSize: 16,
         marginBottom: 8,
-        lineHeight: 18,
+        lineHeight: 20,
         fontFamily: Fonts.body,
     },
     statsRow: {
@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     },
     statText: {
         color: '#aa48b7',
-        fontSize: 14,
+        fontSize: 16,
         marginLeft: 4,
         fontFamily: Fonts.body,
     },

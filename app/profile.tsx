@@ -4,11 +4,12 @@ import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import firestore from '@react-native-firebase/firestore';
 import functions from '@react-native-firebase/functions';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState, } from 'react';
-import { Alert, Linking, Platform, ScrollView, StyleSheet, TextInput, TouchableOpacity, View } from 'react-native';
+import { ActivityIndicator, Alert, Linking, Modal, Platform, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
 import Animated, {
     Easing,
     useAnimatedStyle,
@@ -25,6 +26,14 @@ export default function ProfileScreen() {
     const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
     const [redeemCode, setRedeemCode] = useState('');
     const [isRedeeming, setIsRedeeming] = useState(false);
+
+    // Settings States
+    const [isPersonaModalVisible, setIsPersonaModalVisible] = useState(false);
+    const [personaText, setPersonaText] = useState(userData?.persona || '');
+    const [isNotificationsModalVisible, setIsNotificationsModalVisible] = useState(false);
+    const [isPreferencesModalVisible, setIsPreferencesModalVisible] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
     const rotation = useSharedValue(0);
 
     useEffect(() => {
@@ -34,6 +43,12 @@ export default function ProfileScreen() {
             false
         );
     }, []);
+
+    useEffect(() => {
+        if (userData?.persona !== undefined) {
+            setPersonaText(userData.persona);
+        }
+    }, [userData?.persona]);
 
     const animatedGlowStyle = useAnimatedStyle(() => {
         return {
@@ -127,6 +142,35 @@ export default function ProfileScreen() {
         }
     };
 
+    const updateSetting = async (key: string, value: any) => {
+        if (!user) return;
+        setIsSaving(true);
+        try {
+            await firestore().collection('users').doc(user.uid).update({
+                [key]: value,
+                updatedAt: firestore.FieldValue.serverTimestamp(),
+            });
+        } catch (error) {
+            console.error(`Error updating ${key}:`, error);
+            Alert.alert('Update Failed', `Failed to update ${key}. Please try again.`);
+        } finally {
+            setIsSaving(false);
+        }
+    };
+
+    const handleSavePersona = async () => {
+        await updateSetting('persona', personaText);
+        setIsPersonaModalVisible(false);
+    };
+
+    const toggleNotification = async (value: boolean) => {
+        await updateSetting('notifications', value);
+    };
+
+    const togglePreference = async (key: string, value: boolean) => {
+        await updateSetting(key, value);
+    };
+
     const renderNotLoggedIn = () => (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
             {/* Get Started Card */}
@@ -188,7 +232,7 @@ export default function ProfileScreen() {
                         <Ionicons name="logo-discord" size={24} color="#fff" />
                         <View>
                             <ThemedText style={styles.itemTitleWhite}>Join the Community</ThemedText>
-                            <ThemedText style={styles.itemSubtitleWhite}>Get help from 30k+ dreamers</ThemedText>
+                            <ThemedText style={styles.itemSubtitleWhite}>Get help from coaches</ThemedText>
                         </View>
                     </View>
                     <Ionicons name="open-outline" size={20} color="#fff" />
@@ -345,15 +389,15 @@ export default function ProfileScreen() {
                 <ThemedText style={styles.sectionTitle}>Settings</ThemedText>
                 <ThemedText style={styles.sectionSubtitle}>Manage your profile and notification settings</ThemedText>
 
-                <TouchableOpacity style={styles.itemCard}>
+                <TouchableOpacity style={styles.itemCard} onPress={() => setIsPersonaModalVisible(true)}>
                     <View>
                         <ThemedText style={styles.itemTitle}>Personas</ThemedText>
-                        <ThemedText style={styles.itemSubtitle}>Create and use your personas for chats</ThemedText>
+                        <ThemedText style={styles.itemSubtitle}>{userData?.persona ? userData.persona : 'Create and use your personas for chats'}</ThemedText>
                     </View>
                     <Ionicons name="chevron-forward" size={20} color="#666" />
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.itemCard}>
+                <TouchableOpacity style={styles.itemCard} onPress={() => setIsNotificationsModalVisible(true)}>
                     <View>
                         <ThemedText style={styles.itemTitle}>Notifications</ThemedText>
                         <ThemedText style={styles.itemSubtitle}>Configure your notification preferences</ThemedText>
@@ -361,10 +405,10 @@ export default function ProfileScreen() {
                     <Ionicons name="chevron-forward" size={20} color="#666" />
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.itemCard}>
+                <TouchableOpacity style={styles.itemCard} onPress={() => setIsPreferencesModalVisible(true)}>
                     <View>
                         <ThemedText style={styles.itemTitle}>Preferences</ThemedText>
-                        <ThemedText style={styles.itemSubtitle}>Video looping, active messages, and more</ThemedText>
+                        <ThemedText style={styles.itemSubtitle}>Active messages, calls, and more</ThemedText>
                     </View>
                     <Ionicons name="chevron-forward" size={20} color="#666" />
                 </TouchableOpacity>
@@ -373,6 +417,114 @@ export default function ProfileScreen() {
                     <ThemedText style={styles.signOutButtonText}>Sign Out</ThemedText>
                 </TouchableOpacity>
             </View>
+
+            {/* Persona Modal */}
+            <Modal
+                visible={isPersonaModalVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setIsPersonaModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <ThemedText style={styles.modalTitle}>Update Persona</ThemedText>
+                        <ThemedText style={styles.settingDesc}>This helps coaches to guide you better</ThemedText>
+                        <TextInput
+                            style={styles.modalInput}
+                            placeholder="Enter your persona..."
+                            placeholderTextColor="#666"
+                            value={personaText}
+                            onChangeText={setPersonaText}
+                            multiline
+                        />
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity style={styles.modalCancelButton} onPress={() => setIsPersonaModalVisible(false)}>
+                                <ThemedText style={styles.modalCancelText}>Cancel</ThemedText>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.modalSaveButton} onPress={handleSavePersona} disabled={isSaving}>
+                                {isSaving ? <ActivityIndicator color="#fff" size="small" /> : <ThemedText style={styles.modalSaveText}>Save</ThemedText>}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Notifications Modal */}
+            <Modal
+                visible={isNotificationsModalVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setIsNotificationsModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <ThemedText style={styles.modalTitle}>Notifications</ThemedText>
+                            <TouchableOpacity onPress={() => setIsNotificationsModalVisible(false)}>
+                                <Ionicons name="close" size={24} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.settingRow}>
+                            <View>
+                                <ThemedText style={styles.settingLabel}>Push Notifications</ThemedText>
+                                <ThemedText style={styles.settingDesc}>Receive alerts and updates</ThemedText>
+                            </View>
+                            <Switch
+                                value={userData?.notifications ?? true}
+                                onValueChange={toggleNotification}
+                                trackColor={{ false: '#333', true: '#aa48b7' }}
+                                thumbColor={userData?.notifications ? '#fff' : '#f4f3f4'}
+                            />
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Preferences Modal */}
+            <Modal
+                visible={isPreferencesModalVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setIsPreferencesModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeader}>
+                            <ThemedText style={styles.modalTitle}>Preferences</ThemedText>
+                            <TouchableOpacity onPress={() => setIsPreferencesModalVisible(false)}>
+                                <Ionicons name="close" size={24} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.settingRow}>
+                            <View>
+                                <ThemedText style={styles.settingLabel}>Active Messaging</ThemedText>
+                                <ThemedText style={styles.settingDesc}>Enable real-time chat</ThemedText>
+                            </View>
+                            <Switch
+                                value={userData?.active_messaging ?? true}
+                                onValueChange={(val) => togglePreference('active_messaging', val)}
+                                trackColor={{ false: '#333', true: '#aa48b7' }}
+                                thumbColor={userData?.active_messaging ? '#fff' : '#f4f3f4'}
+                            />
+                        </View>
+
+                        <View style={styles.settingRow}>
+                            <View>
+                                <ThemedText style={styles.settingLabel}>AI Calls</ThemedText>
+                                <ThemedText style={styles.settingDesc}>Allow voice interaction</ThemedText>
+                            </View>
+                            <Switch
+                                value={userData?.calls ?? true}
+                                onValueChange={(val) => togglePreference('calls', val)}
+                                trackColor={{ false: '#333', true: '#aa48b7' }}
+                                thumbColor={userData?.calls ? '#fff' : '#f4f3f4'}
+                            />
+                        </View>
+                    </View>
+                </View>
+            </Modal>
 
             {/* Redeem Code Section */}
             <View style={styles.section}>
@@ -908,5 +1060,94 @@ const styles = StyleSheet.create({
     },
     submitButtonDisabled: {
         opacity: 0.5,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.85)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        padding: 20,
+    },
+    modalContent: {
+        backgroundColor: '#111',
+        borderRadius: 24,
+        padding: 24,
+        width: '100%',
+        maxWidth: 400,
+        borderWidth: 1,
+        borderColor: '#222',
+    },
+    modalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#fff',
+        fontFamily: Fonts.bold,
+    },
+    modalInput: {
+        backgroundColor: '#0a0a0a',
+        borderRadius: 16,
+        padding: 16,
+        color: '#fff',
+        fontSize: 16,
+        minHeight: 120,
+        textAlignVertical: 'top',
+        marginBottom: 24,
+        borderWidth: 1,
+        borderColor: '#333',
+        fontFamily: Fonts.body,
+    },
+    modalButtons: {
+        flexDirection: 'row',
+        gap: 12,
+    },
+    modalCancelButton: {
+        flex: 1,
+        paddingVertical: 14,
+        alignItems: 'center',
+        borderRadius: 14,
+        backgroundColor: '#222',
+    },
+    modalCancelText: {
+        color: '#aaa',
+        fontWeight: '600',
+        fontFamily: Fonts.regular,
+    },
+    modalSaveButton: {
+        flex: 1,
+        paddingVertical: 14,
+        alignItems: 'center',
+        borderRadius: 14,
+        backgroundColor: '#aa48b7',
+    },
+    modalSaveText: {
+        color: '#fff',
+        fontWeight: 'bold',
+        fontFamily: Fonts.bold,
+    },
+    settingRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingVertical: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#1a1a1a',
+    },
+    settingLabel: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#fff',
+        marginBottom: 2,
+        fontFamily: Fonts.regular,
+    },
+    settingDesc: {
+        fontSize: 13,
+        color: '#666',
+        fontFamily: Fonts.body,
     },
 });

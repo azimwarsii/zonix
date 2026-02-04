@@ -17,6 +17,7 @@ import Animated, {
     withTiming
 } from 'react-native-reanimated';
 import AuthModal from './AuthModal';
+import PremiumBadge from './PremiumBadge';
 
 interface HeaderProps {
     rightContent?: 'auth' | 'profile';
@@ -69,9 +70,7 @@ export default function Header({ rightContent = 'auth' }: HeaderProps) {
                 {user ? (
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                         {userData?.planType === 'Premium' ? (
-                            <View style={styles.premiumBadge}>
-                                <ThemedText style={styles.premiumText}>PREMIUM</ThemedText>
-                            </View>
+                            <PremiumBadge />
                         ) : (
                             <TouchableOpacity
                                 style={styles.upgradeHeaderButton}

@@ -1,6 +1,8 @@
+import NotificationHandler from '@/components/NotificationHandler';
 import auth, { FirebaseAuthTypes } from '@react-native-firebase/auth';
 import firestore from '@react-native-firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import Purchases from 'react-native-purchases';
 import RevenueCatUI, { PAYWALL_RESULT } from "react-native-purchases-ui";
@@ -112,34 +114,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const providerId = user.providerData[0]?.providerId;
 
         try {
-            // 1. Re-authenticate for sensitive operation if Google user
+            // 1. Re-authenticate for sensitive operation
             if (providerId === 'google.com') {
                 console.log('deleteAccount: Re-authenticating Google user');
-                try {
-                    const response = await GoogleSignin.signIn() as any;
-                    const idToken = response.idToken || response.data?.idToken;
+                const response = await GoogleSignin.signIn() as any;
+                const idToken = response.idToken || response.data?.idToken;
 
-                    if (idToken) {
-                        const googleCredential = auth.GoogleAuthProvider.credential(idToken);
-                        await user.reauthenticateWithCredential(googleCredential);
-                        console.log('deleteAccount: Re-authentication successful');
-                    }
-                } catch (reauthError) {
-                    console.log('deleteAccount: Re-authentication failed or cancelled', reauthError);
-                    // If re-auth fails, we should still try to delete but it might fail later
-                    // Don't throw here, let user.delete() handle the final check
+                if (idToken) {
+                    const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+                    await user.reauthenticateWithCredential(googleCredential);
+                }
+            } else if (providerId === 'apple.com') {
+                console.log('deleteAccount: Re-authenticating Apple user');
+                const appleAuthRequestResponse = await AppleAuthentication.signInAsync({
+                    requestedScopes: [
+                        AppleAuthentication.AppleAuthenticationScope.FULL_NAME,
+                        AppleAuthentication.AppleAuthenticationScope.EMAIL,
+                    ],
+                }) as any;
+
+                const { identityToken, nonce } = appleAuthRequestResponse;
+                if (identityToken) {
+                    const appleCredential = auth.AppleAuthProvider.credential(identityToken, nonce);
+                    await user.reauthenticateWithCredential(appleCredential);
                 }
             }
 
-            // 2. Delete Firestore data (Must be done while still authenticated)
-            console.log('deleteAccount: Deleting Firestore document for UID:', uid);
-            await firestore().collection('users').doc(uid).delete();
-
-            // 3. Delete Auth user (This is where requires-recent-login usually hits)
+            // 2. Delete Auth user 
+            // Note: The Firestore document cleanup is now handled by the 'onUserDelete' Cloud Function
+            // to ensure atomicity and avoid orphaned Auth accounts if this step fails.
             console.log('deleteAccount: Deleting Firebase Auth user');
             await user.delete();
 
-            // 4. Sign out from Google if applicable
+            // 3. Sign out from providers
             if (providerId === 'google.com') {
                 await GoogleSignin.signOut();
             }
@@ -247,6 +254,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return (
         <AuthContext.Provider value={{ user, userData, isLoading, signOut, deleteAccount, presentPaywall }}>
+            <NotificationHandler />
             {children}
         </AuthContext.Provider>
     );

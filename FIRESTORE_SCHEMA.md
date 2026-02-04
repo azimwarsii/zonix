@@ -15,6 +15,10 @@ Documents are indexed by the Firebase Authentication `uid`.
 | `credits` | number | Remaining balance of Coins. |
 | `paymentHistory` | array | List of payment objects (transaction ID, amount, date). |
 | `redeemedCodes` | array | List of promo codes the user has already redeemed (prevents duplicates). |
+| `persona` | string | Selected user persona. |
+| `notifications` | boolean | User notification preference. |
+| `active_messaging` | boolean | Active messaging status. |
+| `calls` | boolean | Calls capability status. |
 | `createdAt` | timestamp | Server timestamp of account creation. |
 | `updatedAt` | timestamp | Server timestamp of last profile update. |
 

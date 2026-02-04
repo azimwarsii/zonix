@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const { width } = Dimensions.get('window');
 const cardWidth = (width - 28) / 2; // Adjusted for 10px padding on sides and 8px gap between cards
 
-const CATEGORIES = ['All', 'Specialist', 'Expert', 'Profecient', 'Competent'];
+const CATEGORIES = ['All', 'Pragmatic', 'Systematic', 'Collaborative', 'Warm', 'Direct', 'Creative', 'Intuitive'];
 
 const FEATURED_CARDS = [
   {
@@ -79,20 +79,20 @@ export default function ExploreScreen() {
         {/* Filters */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtersScroll}>
           <TouchableOpacity style={styles.filterButton}>
-            <ThemedText style={styles.filterText}>Sort: Popular</ThemedText>
-            <Ionicons name="chevron-down" size={16} color="#ccc" />
+            <ThemedText style={styles.filterLabel}>Sort: <ThemedText style={styles.filterValue}>Popular</ThemedText></ThemedText>
+            <Ionicons name="chevron-down" size={16} color="#666" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.filterButton}>
-            <ThemedText style={styles.filterText}>Followers: Male</ThemedText>
-            <Ionicons name="chevron-down" size={16} color="#ccc" />
+            <ThemedText style={styles.filterLabel}>Followers: <ThemedText style={styles.filterValue}>Any</ThemedText></ThemedText>
+            <Ionicons name="chevron-down" size={16} color="#666" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.filterButton}>
-            <ThemedText style={styles.filterText}>Likes: Any</ThemedText>
-            <Ionicons name="chevron-down" size={16} color="#ccc" />
+            <ThemedText style={styles.filterLabel}>Likes: <ThemedText style={styles.filterValue}>Any</ThemedText></ThemedText>
+            <Ionicons name="chevron-down" size={16} color="#666" />
           </TouchableOpacity>
           <TouchableOpacity style={styles.filterButton}>
-            <ThemedText style={styles.filterText}>Chats: Any</ThemedText>
-            <Ionicons name="chevron-down" size={16} color="#ccc" />
+            <ThemedText style={styles.filterLabel}>Chats: <ThemedText style={styles.filterValue}>Any</ThemedText></ThemedText>
+            <Ionicons name="chevron-down" size={16} color="#666" />
           </TouchableOpacity>
         </ScrollView>
 
@@ -231,7 +231,7 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     color: '#fff',
-    fontSize: 16,
+    fontSize: 18,
     fontFamily: Fonts.body,
   },
   filtersScroll: {
@@ -248,10 +248,15 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginRight: 8,
   },
-  filterText: {
-    color: '#ccc',
-    fontSize: 13,
-    marginRight: 4,
+  filterLabel: {
+    color: '#777',
+    fontSize: 16,
+    fontFamily: Fonts.body,
+  },
+  filterValue: {
+    color: '#fff',
+    fontSize: 16,
+    fontFamily: Fonts.bold,
   },
   categoriesScroll: {
     marginTop: 12,
@@ -260,17 +265,19 @@ const styles = StyleSheet.create({
   },
   categoryPill: {
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    marginRight: 8,
+    paddingVertical: 4,
+    marginRight: 4,
     marginBottom: 4,
     borderRadius: 8,
   },
   activeCategory: {
-    backgroundColor: '#333',
+    backgroundColor: '#aa00ff',
   },
   categoryText: {
     color: '#888',
     fontWeight: '600',
+    fontSize: 18,
+    fontFamily: Fonts.bold,
   },
   activeCategoryText: {
     color: '#fff',
@@ -312,7 +319,7 @@ const styles = StyleSheet.create({
   },
   cardName: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: 'bold',
   },
   cardAge: {
@@ -322,7 +329,7 @@ const styles = StyleSheet.create({
   },
   cardDesc: {
     color: '#ccc',
-    fontSize: 12,
+    fontSize: 16,
     marginTop: 4,
     lineHeight: 16,
   },
@@ -345,12 +352,12 @@ const styles = StyleSheet.create({
   },
   adTitle: {
     color: '#fff',
-    fontSize: 32,
+    fontSize: 34,
     fontWeight: '900',
   },
   adSubtitle: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 18,
     fontWeight: 'bold',
     marginTop: -4,
   },

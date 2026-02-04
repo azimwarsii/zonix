@@ -8,19 +8,19 @@ import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '@/constants/Fonts';
-
-const APP_FONT = Fonts.body;
+import PremiumBadge from './PremiumBadge';
 
 export default function CustomDrawerContent(props: any) {
     const router = useRouter();
     const segments = useSegments() as string[];
     const insets = useSafeAreaInsets();
-    const { presentPaywall } = useAuth();
+    const { user, userData, presentPaywall } = useAuth();
 
     const navigateTo = (route: string) => {
-        // Navigate to the tab screen
         router.push(route as any);
     };
+
+    const isExploreActive = segments.length === 0 || segments.includes('explore') || (segments.includes('(tabs)') && !['chat', 'community', 'my-ai', 'create'].some(s => segments.includes(s)));
 
     return (
         <View style={{ flex: 1, backgroundColor: '#000', borderRightWidth: 1, borderRightColor: '#aa48b7' }}>
@@ -38,14 +38,13 @@ export default function CustomDrawerContent(props: any) {
                 <View style={styles.sectionSeparator} />
 
                 {/* Main Menu */}
-                {/* Main Menu */}
                 <View style={styles.menuSection}>
                     <DrawerItem
                         label="Explore"
-                        labelStyle={[styles.drawerLabel, (segments.length === 0 || segments.includes('explore') || (segments.includes('(tabs)') && !segments.includes('chat') && !segments.includes('community') && !segments.includes('my-ai') && !segments.includes('create'))) && { color: '#aa48b7' }]}
-                        icon={({ size }) => <Ionicons name={(segments.length === 0 || segments.includes('explore') || (segments.includes('(tabs)') && !segments.includes('chat') && !segments.includes('community') && !segments.includes('my-ai') && !segments.includes('create'))) ? "compass" : "compass-outline"} size={size} color={(segments.length === 0 || segments.includes('explore') || (segments.includes('(tabs)') && !segments.includes('chat') && !segments.includes('community') && !segments.includes('my-ai') && !segments.includes('create'))) ? '#aa48b7' : '#fff'} />}
+                        labelStyle={[styles.drawerLabel, isExploreActive && { color: '#aa48b7' }]}
+                        icon={({ size }) => <Ionicons name={isExploreActive ? "compass" : "compass-outline"} size={size} color={isExploreActive ? '#aa48b7' : '#fff'} />}
                         onPress={() => navigateTo('/(tabs)')}
-                        style={[styles.drawerItem, (segments.length === 0 || segments.includes('explore') || (segments.includes('(tabs)') && !segments.includes('chat') && !segments.includes('community') && !segments.includes('my-ai') && !segments.includes('create'))) && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
+                        style={[styles.drawerItem, isExploreActive && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
                     />
                     <DrawerItem
                         label="Chats"
@@ -84,14 +83,25 @@ export default function CustomDrawerContent(props: any) {
                     />
                 </View>
 
-                {/* Upgrade Button */}
+                {/* Dynamic Upgrade/Auth Button */}
                 <View style={styles.upgradeContainer}>
-                    <TouchableOpacity style={styles.upgradeButton} onPress={presentPaywall}>
-                        <Ionicons name="diamond-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-                        <Text style={styles.upgradeText}>Upgrade</Text>
-                    </TouchableOpacity>
+                    {!user ? (
+                        <TouchableOpacity
+                            style={styles.authButton}
+                            onPress={() => navigateTo('/profile')}
+                        >
+                            <Ionicons name="person-add-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+                            <Text style={styles.upgradeText}>Login or Join free</Text>
+                        </TouchableOpacity>
+                    ) : userData?.planType === 'Premium' ? (
+                        <PremiumBadge size="large" />
+                    ) : (
+                        <TouchableOpacity style={styles.upgradeButton} onPress={presentPaywall}>
+                            <Ionicons name="diamond-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+                            <Text style={styles.upgradeText}>Upgrade</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
-
             </View>
 
             {/* Footer */}
@@ -119,7 +129,7 @@ export default function CustomDrawerContent(props: any) {
                     <Text style={styles.legalText}>2026 ZONIX</Text>
                 </View>
             </View>
-        </View >
+        </View>
     );
 }
 
@@ -129,7 +139,7 @@ const styles = StyleSheet.create({
     },
     appName: {
         color: '#fff',
-        fontSize: 32, // Larger for Antonio
+        fontSize: 32,
         letterSpacing: 1,
     },
     sectionSeparator: {
@@ -142,14 +152,13 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     drawerItem: {
-        // marginLeft: 10, 
         borderRadius: 8,
         marginHorizontal: 10,
     },
     drawerLabel: {
         color: '#fff',
         fontSize: 16,
-        marginLeft: 10, // Giving gap
+        marginLeft: 10,
         fontFamily: Fonts.body,
     },
     upgradeContainer: {
@@ -157,7 +166,27 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     upgradeButton: {
-        backgroundColor: '#aa48b7', // Updated color
+        backgroundColor: '#aa48b7',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 8,
+    },
+    authButton: {
+        backgroundColor: '#222',
+        borderWidth: 1,
+        borderColor: '#aa48b7',
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 12,
+        borderRadius: 8,
+    },
+    premiumButton: {
+        backgroundColor: 'rgba(255, 215, 0, 0.1)',
+        borderWidth: 1,
+        borderColor: '#FFD700',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -167,7 +196,7 @@ const styles = StyleSheet.create({
     upgradeText: {
         color: '#fff',
         fontSize: 16,
-        fontFamily: Fonts.bold, // Bold equivalent
+        fontFamily: Fonts.bold,
     },
     footer: {
         borderTopWidth: 1,
