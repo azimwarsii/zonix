@@ -1,6 +1,15 @@
 const { onDocumentCreated } = require('firebase-functions/v2/firestore');
 const functions = require('firebase-functions/v1'); // Use v1 for background Auth triggers
 const admin = require('firebase-admin');
+const crypto = require('crypto');
+
+class IngestionError extends Error {
+    constructor(message, code) {
+        super(message);
+        this.code = code;
+        this.name = 'IngestionError';
+    }
+}
 
 admin.initializeApp();
 
@@ -348,7 +357,7 @@ exports.onUserPlanUpgrade = functions.firestore.document('users/{userId}').onUpd
  * Callable function to create a new AI Coach.
  * Deducts 5 credits from the user and initializes the coach document.
  */
-exports.createCoach = functions.https.onCall(async (data, context) => {
+exports.createCoach = functions.runWith({ secrets: ['OPENAI_API_KEY'] }).https.onCall(async (data, context) => {
     // 1. Ensure user is authenticated
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to create coaches.');
@@ -438,6 +447,17 @@ exports.createCoach = functions.https.onCall(async (data, context) => {
             };
         });
 
+        // 5. Ingest knowledge if provided (Triggering the ingestion pipeline)
+        if (knowledge?.textRecords && knowledge.textRecords.trim().length > 0) {
+            console.log(`Auto-triggering knowledge ingestion for new coach: ${result.coachId}`);
+            try {
+                // We call the logic directly here
+                await performKnowledgeIngestion(result.coachId, knowledge.textRecords, "Initial Forge");
+            } catch (ingestError) {
+                console.error(`Warning: Auto-ingestion failed for coach ${result.coachId}:`, ingestError);
+            }
+        }
+
         return result;
     } catch (error) {
         console.error('Error creating coach:', error);
@@ -447,3 +467,231 @@ exports.createCoach = functions.https.onCall(async (data, context) => {
         throw new functions.https.HttpsError('internal', 'An error occurred while creating your coach. Please try again.');
     }
 });
+
+/**
+ * Shared helper to perform the knowledge ingestion pipeline.
+ */
+
+async function performKnowledgeIngestion(coachId, text, docLabel) {
+    console.log("--------------------------------------------------");
+    console.log(`[Ingest] Coach: ${coachId}`);
+    console.log(`[Ingest] Label: ${docLabel}`);
+
+    // STEP 1 — Cleaning + normalization
+    const cleanedText = text
+        .normalize("NFKC")
+        .replace(/[^\S\r\n]+/g, ' ')
+        .replace(/\r/g, '')
+        .replace(/\n{3,}/g, '\n\n')
+        .trim();
+
+    if (cleanedText.length < 20) {
+        throw new IngestionError("Text too small after cleaning.", "TEXT_TOO_SMALL");
+    }
+
+    console.log(`[Ingest] Cleaned length: ${cleanedText.length}`);
+
+    // Content hash for duplicate detection
+    const contentHash = crypto
+        .createHash('sha256')
+        .update(cleanedText)
+        .digest('hex');
+
+    console.log(`[Ingest] Content hash: ${contentHash}`);
+
+    // Check for duplicates
+    const db = admin.firestore();
+    const coachDoc = await db.collection('coaches').doc(coachId).get();
+    
+    if (!coachDoc.exists) {
+        throw new IngestionError("Coach not found.", "COACH_NOT_FOUND");
+    }
+
+    if (coachDoc.data().knowledge?.lastHash === contentHash) {
+        console.log("[Ingest] Duplicate content detected. Skipping.");
+        return { chunkCount: 0, skipped: true, reason: "duplicate" };
+    }
+
+    // STEP 2 — Chunking with oversized paragraph protection
+    const splitParagraph = (p) => {
+        const words = p.split(/\s+/);
+        const chunks = [];
+
+        for (let i = 0; i < words.length; i += 300) {
+            chunks.push(words.slice(i, i + 300).join(' '));
+        }
+
+        return chunks;
+    };
+
+    const rawParagraphs = cleanedText
+        .split(/\n+/)
+        .map(p => p.trim())
+        .filter(Boolean);
+
+    const paragraphs = rawParagraphs
+        .flatMap(p => p.split(/\s+/).length > 800 ? splitParagraph(p) : [p])
+        .filter(p => p.trim().length > 10); // Filter tiny chunks
+
+    const chunks = [];
+    let current = [];
+    let wordCount = 0;
+
+    for (const p of paragraphs) {
+        const words = p.split(/\s+/).length;
+
+        if (wordCount + words > 550 && current.length) {
+            chunks.push(current.join('\n\n'));
+            current = [p];
+            wordCount = words;
+        } else {
+            current.push(p);
+            wordCount += words;
+
+            if (wordCount >= 400) {
+                chunks.push(current.join('\n\n'));
+                current = [];
+                wordCount = 0;
+            }
+        }
+    }
+
+    if (current.length) chunks.push(current.join('\n\n'));
+
+    if (!chunks.length) {
+        throw new IngestionError("No valid chunks generated.", "NO_CHUNKS");
+    }
+
+    if (chunks.length > 499) { // Firestore batch limit minus coach update
+        throw new IngestionError(
+            `Too many chunks (${chunks.length}). Maximum 499 allowed.`,
+            "TOO_MANY_CHUNKS"
+        );
+    }
+
+    console.log(`[Ingest] Chunk count: ${chunks.length}`);
+
+    // STEP 3 — Embedding with exponential backoff retry
+    const { OpenAI } = require('openai');
+    const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY
+    });
+
+    async function embedWithRetry(inputs, retries = 2, delay = 1000) {
+        try {
+            return await openai.embeddings.create({
+                model: "text-embedding-3-small",
+                input: inputs
+            });
+        } catch (err) {
+            if (!retries) {
+                console.error("[Embed] All retries exhausted:", err.message);
+                throw err;
+            }
+            console.warn(`[Embed] Retry ${3 - retries}/2 after ${delay}ms...`);
+            await new Promise(r => setTimeout(r, delay));
+            return embedWithRetry(inputs, retries - 1, delay * 2);
+        }
+    }
+
+    console.log("[Ingest] Requesting embeddings...");
+    const embeddingResponse = await embedWithRetry(chunks);
+
+    const embeddings = embeddingResponse.data.map(d => d.embedding);
+
+    if (embeddings.length !== chunks.length) {
+        throw new IngestionError(
+            `Embedding count mismatch: expected ${chunks.length}, got ${embeddings.length}`,
+            "EMBEDDING_MISMATCH"
+        );
+    }
+
+    console.log("[Ingest] Embeddings received.");
+
+    // STEP 4 — Firestore storage with error handling
+    const batch = db.batch();
+    const ref = db.collection('coaches').doc(coachId).collection('knowledgeChunks');
+
+    chunks.forEach((chunk, i) => {
+        const doc = ref.doc();
+        batch.set(doc, {
+            text: chunk,
+            embedding: embeddings[i],
+            docLabel: docLabel || "Manual Upload",
+            index: i,
+            contentHash,
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+    });
+
+    batch.update(db.collection('coaches').doc(coachId), {
+        'knowledge.lastSyncAt': admin.firestore.FieldValue.serverTimestamp(),
+        'knowledge.lastHash': contentHash,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    console.log("[Ingest] Writing to Firestore...");
+    
+    try {
+        await batch.commit();
+        console.log("[Ingest] Complete.");
+        return { chunkCount: chunks.length, contentHash };
+    } catch (err) {
+        console.error("[Ingest] Firestore commit failed:", err);
+        console.error(`[Ingest] Lost ${chunks.length} embedded chunks for coach ${coachId}`);
+        throw new IngestionError("Failed to save to database.", "DB_COMMIT_FAILED");
+    }
+}
+
+exports.ingestCoachKnowledge = functions.runWith({ secrets: ['OPENAI_API_KEY'] }).https.onCall(async (data, context) => {
+    // Ensuring authentication
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+
+    const { text, coachId, docLabel } = data;
+
+    // STEP 1 — Validation
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'Text cannot be empty.');
+    }
+    if (text.length > 50000) {
+        throw new functions.https.HttpsError('invalid-argument', 'Text exceeds 50,000 character limit.');
+    }
+    if (!coachId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing coachId.');
+    }
+
+    console.log(`Manual ingestion request for coach: ${coachId} by user: ${context.auth.uid}`);
+
+    try {
+        const db = admin.firestore();
+        // Ownership Validation
+        const coachDoc = await db.collection('coaches').doc(coachId).get();
+        if (!coachDoc.exists) {
+            throw new functions.https.HttpsError('not-found', 'Coach not found.');
+        }
+        if (coachDoc.data().creatorId !== context.auth.uid) {
+            throw new functions.https.HttpsError('permission-denied', 'You do not own this coach.');
+        }
+
+        const result = await performKnowledgeIngestion(coachId, text, docLabel);
+        return {
+            ...result,
+            success: true
+        };
+    } catch (error) {
+        console.error('--------------------------------------------------');
+        console.error('[ERROR] ingestCoachKnowledge Pipeline Failed:');
+        console.error(`Status: ${error.status || 'Internal'}`);
+        console.error(`Message: ${error.message}`);
+        console.error('Stack:', error.stack);
+        console.error('--------------------------------------------------');
+
+        if (error.status === 401) {
+            throw new functions.https.HttpsError('unauthenticated', 'Invalid OpenAI API key.');
+        }
+        throw new functions.https.HttpsError('internal', 'Embedding/Storage failed: ' + error.message);
+    }
+});
+

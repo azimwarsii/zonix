@@ -1,0 +1,148 @@
+async function performKnowledgeIngestion(coachId, text, docLabel) {
+    console.log("--------------------------------------------------");
+    console.log(`[DEBUG] Starting Ingestion for Coach: ${coachId}`);
+    console.log(`[DEBUG] Document Label: ${docLabel}`);
+
+    // STEP 2 — Cleaning
+    console.log(`[Ingest] Starting cleaning for coach: ${coachId}. Original length: ${text.length}`);
+    const cleanedText = text
+        .replace(/[ \t]+/g, ' ')           // normalize spaces
+        .replace(/\r/g, '')                // remove carriage returns
+        .replace(/\n\s*\n/g, '\n\n')       // remove duplicate blank lines
+        .trim();
+    console.log(`[Ingest] Cleaning complete. Cleaned length: ${cleanedText.length}`);
+
+    // STEP 3 — Lightweight chunking
+    const paragraphs = cleanedText.split(/\n+/).map(p => p.trim()).filter(p => p.length > 0);
+    const chunks = [];
+    let currentChunk = [];
+    let currentWordCount = 0;
+    const targetWords = 400;
+
+    for (const paragraph of paragraphs) {
+        const paragraphWords = paragraph.split(/\s+/).length;
+        if (currentWordCount + paragraphWords > 550 && currentChunk.length > 0) {
+            chunks.push(currentChunk.join('\n\n'));
+            currentChunk = [paragraph];
+            currentWordCount = paragraphWords;
+        } else {
+            currentChunk.push(paragraph);
+            currentWordCount += paragraphWords;
+            if (currentWordCount >= targetWords) {
+                chunks.push(currentChunk.join('\n\n'));
+                currentChunk = [];
+                currentWordCount = 0;
+            }
+        }
+    }
+    if (currentChunk.length > 0) chunks.push(currentChunk.join('\n\n'));
+    console.log(`[Ingest] Chunking complete. Generated ${chunks.length} chunks.`);
+
+    // STEP 3.5 — Batch Limit Validation (Firestore max 500 writes)
+    if (chunks.length > 450) {
+        throw new Error(`Text produces too many chunks (${chunks.length}). Max allowed is 450.`);
+    }
+
+    // STEP 4 — Embedding (OpenAI)
+    console.log(`[Ingest] Requesting embeddings from OpenAI for ${chunks.length} chunks...`);
+    const { OpenAI } = require('openai');
+    const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY || (functions.config().openai && functions.config().openai.key)
+    });
+
+    try {
+        const embeddingResponse = await openai.embeddings.create({
+            model: "text-embedding-3-small",
+            input: chunks,
+        });
+        const embeddings = embeddingResponse.data.map(item => item.embedding);
+        console.log(`[Ingest] Successfully retrieved ${embeddings.length} embeddings from OpenAI.`);
+    } catch (embErr) {
+        console.error(`[Ingest] OpenAI Embedding Error:`, embErr);
+        throw embErr;
+    }
+
+    // STEP 5 — Firestore storage
+    console.log(`[Ingest] Preparing Firestore batch for ${chunks.length} chunks...`);
+    const db = admin.firestore();
+    const batch = db.batch();
+    const knowledgeChunksRef = db.collection('coaches').doc(coachId).collection('knowledgeChunks');
+
+    chunks.forEach((chunkContent, index) => {
+        const chunkDocRef = knowledgeChunksRef.doc();
+        batch.set(chunkDocRef, {
+            text: chunkContent,
+            embedding: embeddings[index],
+            docLabel: docLabel || 'Manual Upload',
+            index: index,
+            createdAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+    });
+
+    batch.update(db.collection('coaches').doc(coachId), {
+        'knowledge.lastSyncAt': admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    console.log(`[Ingest] Committing Firestore batch...`);
+    await batch.commit();
+    console.log(`[Ingest] Ingestion pipeline successfully finished for coach: ${coachId}`);
+    return { chunkCount: chunks.length };
+}
+
+// 6. Knowledge Ingestion Pipeline
+/**
+ * Callable function to process plaintext knowledge for an AI coach.
+ * Chunks the text, generates embeddings, and stores them in Firestore.
+ */
+exports.ingestCoachKnowledge = functions.runWith({ secrets: ['OPENAI_API_KEY'] }).https.onCall(async (data, context) => {
+    // Ensuring authentication
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated.');
+    }
+
+    const { text, coachId, docLabel } = data;
+
+    // STEP 1 — Validation
+    if (!text || typeof text !== 'string' || text.trim().length === 0) {
+        throw new functions.https.HttpsError('invalid-argument', 'Text cannot be empty.');
+    }
+    if (text.length > 50000) {
+        throw new functions.https.HttpsError('invalid-argument', 'Text exceeds 50,000 character limit.');
+    }
+    if (!coachId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing coachId.');
+    }
+
+    console.log(`Manual ingestion request for coach: ${coachId} by user: ${context.auth.uid}`);
+
+    try {
+        const db = admin.firestore();
+        // Ownership Validation
+        const coachDoc = await db.collection('coaches').doc(coachId).get();
+        if (!coachDoc.exists) {
+            throw new functions.https.HttpsError('not-found', 'Coach not found.');
+        }
+        if (coachDoc.data().creatorId !== context.auth.uid) {
+            throw new functions.https.HttpsError('permission-denied', 'You do not own this coach.');
+        }
+
+        const result = await performKnowledgeIngestion(coachId, text, docLabel);
+        return {
+            ...result,
+            success: true
+        };
+    } catch (error) {
+        console.error('--------------------------------------------------');
+        console.error('[ERROR] ingestCoachKnowledge Pipeline Failed:');
+        console.error(`Status: ${error.status || 'Internal'}`);
+        console.error(`Message: ${error.message}`);
+        console.error('Stack:', error.stack);
+        console.error('--------------------------------------------------');
+
+        if (error.status === 401) {
+            throw new functions.https.HttpsError('unauthenticated', 'Invalid OpenAI API key.');
+        }
+        throw new functions.https.HttpsError('internal', 'Embedding/Storage failed: ' + error.message);
+    }
+});

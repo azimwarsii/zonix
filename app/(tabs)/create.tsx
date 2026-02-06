@@ -61,7 +61,7 @@ export default function CreateScreen() {
     const [knowledgeBaseText, setKnowledgeBaseText] = useState('');
     const [primaryGreeting, setPrimaryGreeting] = useState('');
     const [whoAmI, setWhoAmI] = useState('');
-    const [showAdvanced, setShowAdvanced] = useState(true);
+    const [showAdvanced, setShowAdvanced] = useState(false);
     const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
@@ -451,21 +451,21 @@ export default function CreateScreen() {
                             onPress={() => setActiveAdvancedModal('Primary Greeting')}
                         >
                             <ThemedText style={styles.actionLabel}>Primary Greeting</ThemedText>
-                            <Ionicons name="pencil-sharp" size={18} color="#666" />
+                            <Ionicons name="pencil-sharp" size={18} color="#aa48b7" />
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.actionItem}
                             onPress={() => setActiveAdvancedModal('Knowledge Base')}
                         >
                             <ThemedText style={styles.actionLabel}>Knowledge Base</ThemedText>
-                            <Ionicons name="pencil-sharp" size={18} color="#666" />
+                            <Ionicons name="pencil-sharp" size={18} color="#aa48b7" />
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={styles.actionItem}
                             onPress={() => setActiveAdvancedModal('Who Am I?')}
                         >
                             <ThemedText style={styles.actionLabel}>Who Am I ?</ThemedText>
-                            <Ionicons name="pencil-sharp" size={18} color="#666" />
+                            <Ionicons name="pencil-sharp" size={18} color="#aa48b7" />
                         </TouchableOpacity>
                         {creationType === 'clone' && (
                             <TouchableOpacity
@@ -473,7 +473,7 @@ export default function CreateScreen() {
                                 onPress={() => setActiveAdvancedModal('Social Links')}
                             >
                                 <ThemedText style={styles.actionLabel}>Social Links</ThemedText>
-                                <Ionicons name="share-social-outline" size={18} color="#666" />
+                                <Ionicons name="share-social-outline" size={18} color="#aa48b7" />
                             </TouchableOpacity>
                         )}
                     </View>
@@ -641,6 +641,34 @@ export default function CreateScreen() {
                                             <ThemedText style={styles.infoText}>
                                                 Paste key facts, rules, or data here. This information will form the core of your AI's knowledge base.
                                             </ThemedText>
+                                        </View>
+
+                                        <View style={{ paddingBottom: 40 }}>
+                                            <ThemedText style={styles.guideTitle}>What to include?</ThemedText>
+
+                                            {[
+                                                "Personal core values and philosophy",
+                                                "Specific methodologies or frameworks you use",
+                                                "Frequently asked questions (FAQs)",
+                                                "Standard operating procedures (SOPs)",
+                                                "Writing style preferences and common phrases",
+                                                "Key life achievements or milestones"
+                                            ].map((item, index) => (
+                                                <View key={index} style={styles.guideItem}>
+                                                    <Text style={styles.guideBullet}>•</Text>
+                                                    <ThemedText style={styles.guideText}>{item}</ThemedText>
+                                                </View>
+                                            ))}
+
+                                            <TouchableOpacity
+                                                style={[styles.infoBox, { marginTop: 24 }]}
+                                                onPress={() => RN.Linking.openURL('https://docs.google.com/document/d/1oqN4wLYgDMWfUolHtkMOS1SMn1U7FccTytQ-X0Faa3g/edit?usp=sharing')}
+                                            >
+                                                <Ionicons name="document-text-outline" size={20} color="#aa48b7" />
+                                                <ThemedText style={styles.infoText}>
+                                                    See an <Text style={styles.exampleLink}>Example Knowledge Base</Text> to understand the ideal formatting.
+                                                </ThemedText>
+                                            </TouchableOpacity>
                                         </View>
                                     </>
                                 )}
@@ -990,7 +1018,7 @@ const styles = StyleSheet.create({
     },
     cardLabel: {
         fontSize: 12,
-        color: '#666',
+        color: '#fff',
         fontFamily: Fonts.body,
     },
     cardValue: {
@@ -1014,7 +1042,7 @@ const styles = StyleSheet.create({
     },
     accordionTitle: {
         fontSize: 14,
-        color: '#888',
+        color: '#444',
         fontFamily: Fonts.body,
     },
     advancedItem: {
@@ -1057,7 +1085,7 @@ const styles = StyleSheet.create({
     },
     actionLabel: {
         fontSize: 16,
-        color: '#888',
+        color: '#fff',
         fontFamily: Fonts.body,
     },
     bottomBar: {
@@ -1268,5 +1296,34 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         borderWidth: 1,
         borderColor: '#333',
-    }
+    },
+    exampleLink: {
+        color: '#aa48b7',
+        textDecorationLine: 'underline',
+        fontFamily: Fonts.bold,
+    },
+    guideTitle: {
+        fontSize: 15,
+        fontFamily: Fonts.bold,
+        color: '#fff',
+        marginTop: 24,
+        marginBottom: 12,
+    },
+    guideItem: {
+        flexDirection: 'row',
+        marginBottom: 8,
+        paddingRight: 10,
+    },
+    guideBullet: {
+        color: '#aa48b7',
+        fontSize: 16,
+        marginRight: 10,
+        marginTop: -1,
+    },
+    guideText: {
+        fontSize: 13,
+        color: '#999',
+        fontFamily: Fonts.body,
+        lineHeight: 18,
+    },
 });
