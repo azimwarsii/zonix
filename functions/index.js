@@ -363,7 +363,8 @@ exports.createCoach = functions.https.onCall(async (data, context) => {
         yearsOfExpertise,
         essence,
         advanced,
-        knowledge
+        knowledge,
+        coachId
     } = data;
 
     // 2. Validate basic required data
@@ -391,7 +392,7 @@ exports.createCoach = functions.https.onCall(async (data, context) => {
             }
 
             // 4. Create the Coach Document
-            const coachRef = admin.firestore().collection('coaches').doc();
+            const coachRef = coachId ? admin.firestore().collection('coaches').doc(coachId) : admin.firestore().collection('coaches').doc();
             const coachData = {
                 id: coachRef.id,
                 name,
@@ -399,18 +400,16 @@ exports.createCoach = functions.https.onCall(async (data, context) => {
                 creatorId: uid,
                 portraitUrl: portraitUrl || null,
                 specialization,
+                isVerified: false,
                 yearsOfExpertise: type === 'clone' ? (yearsOfExpertise || 0) : null,
                 essence,
                 advanced: {
                     primaryGreeting: advanced?.primaryGreeting || "Hello! How can I help you today?",
-                    whoAmI: type === 'imaginative' ? (advanced?.whoAmI || "") : null
+                    whoAmI: type === 'imaginative' ? (advanced?.whoAmI || "") : null,
+                    socialLinks: advanced?.socialLinks || {}
                 },
                 knowledge: {
                     textRecords: knowledge?.textRecords || "",
-                    googleAuth: {
-                        access_token: knowledge?.googleAuth?.access_token || null,
-                        refresh_token: knowledge?.googleAuth?.refresh_token || null
-                    },
                     lastSyncAt: null
                 },
                 stats: {

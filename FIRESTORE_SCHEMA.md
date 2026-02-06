@@ -24,8 +24,8 @@ Documents are indexed by the Firebase Authentication `uid`.
 
 ---
 
-### `coaches` (Upcoming)
-Documents representing AI coaches.
+### `coaches`
+Documents representing forged AI coaches.
 
 | Field | Type | Description |
 | :--- | :--- | :--- |
@@ -33,16 +33,19 @@ Documents representing AI coaches.
 | `type` | string | `clone` or `imaginative`. |
 | `creatorId` | string | UID of creator. |
 | `name` | string | Coach name. |
-| `portraitUrl` | string | Storage URL for capture (Clones only). |
+| `portraitUrl` | string | Storage URL for portrait image (Clones only). |
 | `specialization` | string | e.g. "Software Engineering". |
-| `yearsOfExpertise` | number | level (Clones only). |
-| `essence` | map | `{ talkStyle, temperament, focusArea, presence }`. |
+| `yearsOfExpertise` | number | level of experience (Clones only). |
+| `isVerified` | boolean | Verification status. |
+| `essence` | map | Selected traits (e.g., "Talk Style", "Temperament"). |
 | `advanced.primaryGreeting` | string | Initial message. |
-| `advanced.whoAmI` | string | Bio/Identity (Visionary only). |
-| `knowledge.textRecords` | string | Manual facts/rules. |
-| `knowledge.googleAuth` | map | `{ access_token, refresh_token }`. |
-| `knowledge.lastSyncAt` | timestamp | Sync tracking. |
+| `advanced.whoAmI` | string | Bio/Identity (Imaginative only). |
+| `advanced.socialLinks` | map | Instagram, Twitter, etc. |
+| `knowledge.textRecords` | string | Core wisdom and custom rules. |
+| `knowledge.lastSyncAt` | timestamp | Last time the knowledge base was updated. |
 | `stats` | map | `{ likes, follows, chats }`. |
+| `createdAt` | timestamp | Creation time. |
+| `updatedAt` | timestamp | Last update time. |
 
 ---
 

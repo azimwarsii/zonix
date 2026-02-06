@@ -13,7 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 const { width } = Dimensions.get('window');
 const cardWidth = (width - 28) / 2; // Adjusted for 10px padding on sides and 8px gap between cards
 
-const CATEGORIES = ['All', 'Pragmatic', 'Systematic', 'Collaborative', 'Warm', 'Direct', 'Creative', 'Intuitive'];
+const CATEGORIES = ["All", "Direct", "Casual", "Academic", "Humorous", "Compassionate", "Socratic"];
 
 const FEATURED_CARDS = [
   {

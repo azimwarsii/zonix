@@ -28,6 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         GoogleSignin.configure({
             webClientId: '1089756321378-48a5istasmq0hpakbu5nqo62o7k1lc9e.apps.googleusercontent.com',
             offlineAccess: true,
+            forceCodeForRefreshToken: true,
         });
 
         const subscriber = auth().onAuthStateChanged((userState) => {

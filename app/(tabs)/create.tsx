@@ -5,11 +5,13 @@ import { ThemedText } from '@/components/themed-text';
 import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import firestore from '@react-native-firebase/firestore';
 import functions from '@react-native-firebase/functions';
-import { GoogleSignin } from '@react-native-google-signin/google-signin';
+import storage from '@react-native-firebase/storage';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import * as RN from 'react-native';
 import {
     Alert,
     Dimensions,
@@ -31,14 +33,6 @@ import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 
-const STEPS = [
-    { icon: 'person', id: 1 },
-    { icon: 'card', id: 2 },
-    { icon: 'happy', id: 3 },
-    { icon: 'body', id: 4 },
-    { icon: 'document-text', id: 5 },
-    { icon: 'image', id: 6 },
-];
 
 const EXPERTISE_OPTIONS = [
     "Business Strategy", "Life Coaching", "Software Engineering",
@@ -56,7 +50,6 @@ const ESSENCE_OPTIONS = {
 };
 
 export default function CreateScreen() {
-    const [currentStep, setCurrentStep] = useState(1);
     const [creationType, setCreationType] = useState<'clone' | 'imaginative'>('clone');
     const [name, setName] = useState('');
     const [experience, setExperience] = useState(0);
@@ -66,7 +59,6 @@ export default function CreateScreen() {
     const [portraitImage, setPortraitImage] = useState<string | null>(null);
     const [activeAdvancedModal, setActiveAdvancedModal] = useState<string | null>(null);
     const [knowledgeBaseText, setKnowledgeBaseText] = useState('');
-    const [googleAuth, setGoogleAuth] = useState<{ access_token: string | null, refresh_token: string | null } | null>(null);
     const [primaryGreeting, setPrimaryGreeting] = useState('');
     const [whoAmI, setWhoAmI] = useState('');
     const [showAdvanced, setShowAdvanced] = useState(true);
@@ -74,6 +66,23 @@ export default function CreateScreen() {
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [isCreating, setIsCreating] = useState(false);
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
+    const [socialLinks, setSocialLinks] = useState({
+        instagram: '',
+        twitter: '',
+        linkedin: '',
+        tiktok: '',
+        youtube: '',
+    });
+    const [isSyncing, setIsSyncing] = useState(false);
+    const syncTimeoutRef = useRef<any>(null);
+
+    const handleAutoSave = () => {
+        setIsSyncing(true);
+        if (syncTimeoutRef.current) clearTimeout(syncTimeoutRef.current);
+        syncTimeoutRef.current = setTimeout(() => {
+            setIsSyncing(false);
+        }, 800);
+    };
 
     const router = useRouter();
     const { user, userData } = useAuth();
@@ -112,41 +121,12 @@ export default function CreateScreen() {
         setActiveEssencePicker(null);
     };
 
-    const linkGoogleDrive = async () => {
-        try {
-            await GoogleSignin.hasPlayServices();
-            // Request specific read-only scopes
-            const hasScopes = await GoogleSignin.addScopes({
-                scopes: [
-                    'https://www.googleapis.com/auth/drive.readonly',
-                    'https://www.googleapis.com/auth/documents.readonly'
-                ]
-            });
-
-            if (hasScopes) {
-                const tokens = await GoogleSignin.getTokens();
-                // Note: refresh_token is typically only available via server-side exchange of serverAuthCode
-                // but we'll store what we can. 
-                setGoogleAuth({
-                    access_token: tokens.accessToken,
-                    refresh_token: null
-                });
-                Alert.alert("Access Granted", "Knowledge base is now linked to your Google Drive.");
-            }
-        } catch (error: any) {
-            console.error('Google Auth Error:', error);
-            Alert.alert("Link Failed", "Could not connect to Google Drive. Please try again.");
-        }
-    };
-
-
     const handlePhotoCapture = (path: string) => {
         setPortraitImage(`file://${path}`);
         setShowCamera(false);
     };
 
     const resetForm = () => {
-        setCurrentStep(1);
         setCreationType('clone');
         setName('');
         setExperience(0);
@@ -154,7 +134,6 @@ export default function CreateScreen() {
         setPortraitImage(null);
         setActiveAdvancedModal(null);
         setKnowledgeBaseText('');
-        setGoogleAuth(null);
         setPrimaryGreeting('');
         setWhoAmI('');
         setValidationErrors([]);
@@ -166,6 +145,13 @@ export default function CreateScreen() {
             "Insight Level": null,
             "Presence": null
         });
+        setSocialLinks({
+            instagram: '',
+            twitter: '',
+            linkedin: '',
+            tiktok: '',
+            youtube: '',
+        });
     };
 
     const handleNext = () => {
@@ -173,13 +159,7 @@ export default function CreateScreen() {
             setShowAuthModal(true);
             return;
         }
-
-        // Validate everything for the final forge call, or just move forward
-        if (currentStep < 6) {
-            setCurrentStep(currentStep + 1);
-        } else {
-            handleCreateCoach();
-        }
+        handleCreateCoach();
     };
 
     const validateForm = () => {
@@ -204,21 +184,73 @@ export default function CreateScreen() {
 
         setIsCreating(true);
         try {
-            console.log('Calling createCoach Cloud Function...');
+            console.log('Preparing coach data and uploading assets...');
+            const coachId = firestore().collection('coaches').doc().id;
+            let finalPortraitUrl = portraitImage;
+
+            // Handle portrait image upload if it's a local file
+            if (portraitImage && portraitImage.startsWith('file://')) {
+                try {
+                    console.log('--- STORAGE UPLOAD START ---');
+                    const filePath = portraitImage.replace('file://', '');
+                    const storagePath = `coaches/${coachId}/portrait.jpg`;
+                    const reference = storage().ref(storagePath);
+
+                    console.log('Local File:', filePath);
+                    console.log('Storage Reference:', storagePath);
+                    console.log('Full Ref:', reference.toString());
+
+                    // Perform upload and wait for it to finish
+                    await reference.putFile(filePath);
+                    console.log('putFile finished successfully');
+
+                    // Small delay to ensure eventual consistency (sometimes needed on new buckets)
+                    await new Promise(resolve => setTimeout(resolve, 500));
+
+                    // Attempt to get download URL with a simple retry
+                    let downloadUrl = '';
+                    for (let attempt = 1; attempt <= 3; attempt++) {
+                        try {
+                            downloadUrl = await reference.getDownloadURL();
+                            if (downloadUrl) break;
+                        } catch (urlErr) {
+                            console.log(`getDownloadURL attempt ${attempt} failed, retrying...`);
+                            if (attempt === 3) throw urlErr;
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+                        }
+                    }
+
+                    finalPortraitUrl = downloadUrl;
+                    console.log('Final Download URL:', finalPortraitUrl);
+                    console.log('--- STORAGE UPLOAD END ---');
+                } catch (uploadError: any) {
+                    console.error('CRITICAL STORAGE ERROR:', uploadError);
+                    let errorMsg = uploadError.message;
+                    if (uploadError.code === 'storage/object-not-found') {
+                        errorMsg = 'Internal sync error: Upload succeeded but file not found. Please try again.';
+                    } else if (uploadError.code === 'storage/unauthorized') {
+                        errorMsg = 'Permission denied: Check Storage Rules.';
+                    }
+                    throw new Error(errorMsg);
+                }
+            }
+
+            console.log('Calling createCoach Cloud Function with ID:', coachId);
             const result = (await functions().httpsCallable('createCoach')({
+                coachId,
                 name,
                 type: creationType,
-                portraitUrl: portraitImage,
+                portraitUrl: finalPortraitUrl,
                 specialization: expertise,
                 yearsOfExpertise: experience,
                 essence: essences,
                 advanced: {
                     primaryGreeting,
-                    whoAmI
+                    whoAmI,
+                    socialLinks
                 },
                 knowledge: {
-                    textRecords: knowledgeBaseText,
-                    googleAuth
+                    textRecords: knowledgeBaseText
                 }
             })) as any;
 
@@ -435,6 +467,15 @@ export default function CreateScreen() {
                             <ThemedText style={styles.actionLabel}>Who Am I ?</ThemedText>
                             <Ionicons name="pencil-sharp" size={18} color="#666" />
                         </TouchableOpacity>
+                        {creationType === 'clone' && (
+                            <TouchableOpacity
+                                style={styles.actionItem}
+                                onPress={() => setActiveAdvancedModal('Social Links')}
+                            >
+                                <ThemedText style={styles.actionLabel}>Social Links</ThemedText>
+                                <Ionicons name="share-social-outline" size={18} color="#666" />
+                            </TouchableOpacity>
+                        )}
                     </View>
                 )}
             </ScrollView>
@@ -454,13 +495,16 @@ export default function CreateScreen() {
                     >
                         <View style={{ alignItems: 'center' }}>
                             <ThemedText style={styles.nextText}>
-                                {isCreating ? 'FORGING...' : (currentStep === 6 ? 'FORGE AGENT' : 'NEXT')}
+                                {isCreating ? 'FORGING...' : 'FORGE AGENT'}
                             </ThemedText>
-                            {!isCreating && currentStep === 6 && (
+                            {!isCreating && (
                                 <Text style={styles.creditDeductionText}>-5 Coins</Text>
                             )}
                         </View>
-                        {!isCreating && currentStep !== 6 && <Ionicons name="arrow-forward" size={20} color="#fff" style={{ marginLeft: 8 }} />}
+                        {isCreating && (
+                            <RN.ActivityIndicator size="small" color="#fff" style={{ marginLeft: 12 }} />
+                        )}
+                        {!isCreating && <Ionicons name="sparkles" size={20} color="#fff" style={{ marginLeft: 8 }} />}
                     </LinearGradient>
                 </TouchableOpacity>
             </View>
@@ -537,16 +581,24 @@ export default function CreateScreen() {
                     <View style={styles.modalContainer}>
                         <View style={[
                             styles.modalContent,
-                            {
-                                height: isKeyboardVisible
-                                    ? '90%'
-                                    : (activeAdvancedModal === 'Knowledge Base' ? '80%' : '55%')
-                            }
+                            { height: '90%', borderTopLeftRadius: 20, borderTopRightRadius: 20 }
                         ]}>
                             <View style={styles.modalHeader}>
-                                <ThemedText style={styles.modalTitle}>{activeAdvancedModal}</ThemedText>
+                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                                    <ThemedText style={styles.modalTitle}>{activeAdvancedModal}</ThemedText>
+                                    {isSyncing ? (
+                                        <RN.ActivityIndicator size="small" color="#aa48b7" />
+                                    ) : (
+                                        <View style={styles.savedBadge}>
+                                            <Ionicons name="checkmark-circle" size={14} color="#34A853" />
+                                            <Text style={styles.savedText}>Saved</Text>
+                                        </View>
+                                    )}
+                                </View>
                                 <TouchableOpacity onPress={() => setActiveAdvancedModal(null)}>
-                                    <Ionicons name="close" size={24} color="#fff" />
+                                    <View style={styles.closeButtonContainer}>
+                                        <Ionicons name="close" size={24} color="#fff" />
+                                    </View>
                                 </TouchableOpacity>
                             </View>
 
@@ -560,7 +612,10 @@ export default function CreateScreen() {
                                             placeholderTextColor="#444"
                                             multiline
                                             value={primaryGreeting}
-                                            onChangeText={setPrimaryGreeting}
+                                            onChangeText={(txt) => {
+                                                setPrimaryGreeting(txt);
+                                                handleAutoSave();
+                                            }}
                                         />
                                     </View>
                                 )}
@@ -575,32 +630,17 @@ export default function CreateScreen() {
                                                 placeholderTextColor="#444"
                                                 multiline
                                                 value={knowledgeBaseText}
-                                                onChangeText={setKnowledgeBaseText}
+                                                onChangeText={(txt) => {
+                                                    setKnowledgeBaseText(txt);
+                                                    handleAutoSave();
+                                                }}
                                             />
                                         </View>
-                                        <View style={styles.modalSection}>
-                                            <ThemedText style={styles.modalSectionLabel}>Connected Wisdom</ThemedText>
-                                            <TouchableOpacity
-                                                style={[styles.googleLinkButton, googleAuth?.access_token && styles.googleLinkButtonActive]}
-                                                onPress={linkGoogleDrive}
-                                            >
-                                                <Ionicons
-                                                    name={googleAuth?.access_token ? "checkmark-circle" : "logo-google"}
-                                                    size={22}
-                                                    color="#fff"
-                                                    style={{ marginRight: 10 }}
-                                                />
-                                                <ThemedText style={styles.googleLinkText}>
-                                                    {googleAuth?.access_token ? "Google Drive Linked" : "Link Google Drive"}
-                                                </ThemedText>
-                                            </TouchableOpacity>
-
-                                            <View style={styles.infoBox}>
-                                                <Ionicons name="shield-checkmark-outline" size={20} color="#aa48b7" />
-                                                <ThemedText style={styles.infoText}>
-                                                    We only request read-only access to your Drive and Documents. This allows the AI to learn from you and keep its knowledge base synchronized.
-                                                </ThemedText>
-                                            </View>
+                                        <View style={styles.infoBox}>
+                                            <Ionicons name="information-circle-outline" size={20} color="#aa48b7" />
+                                            <ThemedText style={styles.infoText}>
+                                                Paste key facts, rules, or data here. This information will form the core of your AI's knowledge base.
+                                            </ThemedText>
                                         </View>
                                     </>
                                 )}
@@ -616,22 +656,99 @@ export default function CreateScreen() {
                                             placeholderTextColor="#444"
                                             multiline
                                             value={whoAmI}
-                                            onChangeText={setWhoAmI}
+                                            onChangeText={(txt) => {
+                                                setWhoAmI(txt);
+                                                handleAutoSave();
+                                            }}
                                         />
                                     </View>
                                 )}
 
-                                <TouchableOpacity
-                                    style={styles.saveButton}
-                                    onPress={() => setActiveAdvancedModal(null)}
-                                >
-                                    <LinearGradient
-                                        colors={['#aa48b7', '#4a148c']}
-                                        style={styles.saveButtonGradient}
-                                    >
-                                        <ThemedText style={styles.saveButtonText}>Save Details</ThemedText>
-                                    </LinearGradient>
-                                </TouchableOpacity>
+                                {activeAdvancedModal === 'Social Links' && (
+                                    <View style={styles.modalSection}>
+                                        <ThemedText style={styles.modalSectionLabel}>Connect Social Media</ThemedText>
+
+                                        <View style={styles.socialInputRow}>
+                                            <Ionicons name="logo-instagram" size={24} color="#E4405F" style={styles.socialIcon} />
+                                            <View style={[styles.modalInputWrapper, { flex: 1 }]}>
+                                                <TextInput
+                                                    style={styles.modalInput}
+                                                    placeholder="Instagram Username"
+                                                    placeholderTextColor="#444"
+                                                    value={socialLinks.instagram}
+                                                    onChangeText={(txt) => {
+                                                        setSocialLinks(prev => ({ ...prev, instagram: txt }));
+                                                        handleAutoSave();
+                                                    }}
+                                                />
+                                            </View>
+                                        </View>
+
+                                        <View style={styles.socialInputRow}>
+                                            <Ionicons name="logo-twitter" size={24} color="#1DA1F2" style={styles.socialIcon} />
+                                            <View style={[styles.modalInputWrapper, { flex: 1 }]}>
+                                                <TextInput
+                                                    style={styles.modalInput}
+                                                    placeholder="X / Twitter Username"
+                                                    placeholderTextColor="#444"
+                                                    value={socialLinks.twitter}
+                                                    onChangeText={(txt) => {
+                                                        setSocialLinks(prev => ({ ...prev, twitter: txt }));
+                                                        handleAutoSave();
+                                                    }}
+                                                />
+                                            </View>
+                                        </View>
+
+                                        <View style={styles.socialInputRow}>
+                                            <Ionicons name="logo-linkedin" size={24} color="#0077B5" style={styles.socialIcon} />
+                                            <View style={[styles.modalInputWrapper, { flex: 1 }]}>
+                                                <TextInput
+                                                    style={styles.modalInput}
+                                                    placeholder="LinkedIn URL"
+                                                    placeholderTextColor="#444"
+                                                    value={socialLinks.linkedin}
+                                                    onChangeText={(txt) => {
+                                                        setSocialLinks(prev => ({ ...prev, linkedin: txt }));
+                                                        handleAutoSave();
+                                                    }}
+                                                />
+                                            </View>
+                                        </View>
+
+                                        <View style={styles.socialInputRow}>
+                                            <Ionicons name="logo-tiktok" size={24} color="#fff" style={styles.socialIcon} />
+                                            <View style={[styles.modalInputWrapper, { flex: 1 }]}>
+                                                <TextInput
+                                                    style={styles.modalInput}
+                                                    placeholder="TikTok Username"
+                                                    placeholderTextColor="#444"
+                                                    value={socialLinks.tiktok}
+                                                    onChangeText={(txt) => {
+                                                        setSocialLinks(prev => ({ ...prev, tiktok: txt }));
+                                                        handleAutoSave();
+                                                    }}
+                                                />
+                                            </View>
+                                        </View>
+
+                                        <View style={styles.socialInputRow}>
+                                            <Ionicons name="logo-youtube" size={24} color="#FF0000" style={styles.socialIcon} />
+                                            <View style={[styles.modalInputWrapper, { flex: 1 }]}>
+                                                <TextInput
+                                                    style={styles.modalInput}
+                                                    placeholder="YouTube Channel URL"
+                                                    placeholderTextColor="#444"
+                                                    value={socialLinks.youtube}
+                                                    onChangeText={(txt) => {
+                                                        setSocialLinks(prev => ({ ...prev, youtube: txt }));
+                                                        handleAutoSave();
+                                                    }}
+                                                />
+                                            </View>
+                                        </View>
+                                    </View>
+                                )}
                             </ScrollView>
                         </View>
                     </View>
@@ -1118,5 +1235,38 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontFamily: Fonts.bold,
+    },
+    socialInputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    socialIcon: {
+        width: 32,
+        marginRight: 12,
+    },
+    savedBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(52, 168, 83, 0.1)',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        gap: 4,
+    },
+    savedText: {
+        color: '#34A853',
+        fontSize: 10,
+        fontFamily: Fonts.bold,
+    },
+    closeButtonContainer: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: '#1a1a1a',
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#333',
     }
 });
