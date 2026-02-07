@@ -38,7 +38,7 @@ export default function RootLayout() {
   useEffect(() => {
     // Initialize RevenueCat
     Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
-    const iosApiKey = 'test_MlPRLBjvIJNMYolhzdIiSRrtnmz';
+    const iosApiKey = 'appl_eAvndgscosrWeRfQhjEnNEIROOX'; //need change
     const androidApiKey = 'test_MlPRLBjvIJNMYolhzdIiSRrtnmz';
 
     if (Platform.OS === 'ios') {

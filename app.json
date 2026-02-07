@@ -20,7 +20,10 @@
         "UIBackgroundModes": [
           "fetch",
           "remote-notification"
-        ]
+        ],
+        "NSLocationWhenInUseUsageDescription": "Zonix uses your location to provide local content and improve app experience.",
+        "NSPhotoLibraryUsageDescription": "Zonix needs access to your photos to allow you to upload a coach profile image.",
+        "NSMicrophoneUsageDescription": "Zonix needs access to your microphone for video recording features."
       }
     },
     "android": {
