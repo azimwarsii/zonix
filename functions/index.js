@@ -502,7 +502,7 @@ async function performKnowledgeIngestion(coachId, text, docLabel) {
     // Check for duplicates
     const db = admin.firestore();
     const coachDoc = await db.collection('coaches').doc(coachId).get();
-    
+
     if (!coachDoc.exists) {
         throw new IngestionError("Coach not found.", "COACH_NOT_FOUND");
     }
@@ -631,7 +631,7 @@ async function performKnowledgeIngestion(coachId, text, docLabel) {
     });
 
     console.log("[Ingest] Writing to Firestore...");
-    
+
     try {
         await batch.commit();
         console.log("[Ingest] Complete.");

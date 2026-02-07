@@ -61,26 +61,20 @@ export default function CustomDrawerContent(props: any) {
                         style={[styles.drawerItem, segments.includes('create') && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
                     />
                     <DrawerItem
-                        label="My AI"
-                        labelStyle={[styles.drawerLabel, segments.includes('my-ai') && { color: '#aa48b7' }]}
-                        icon={({ size }) => <Ionicons name={segments.includes('my-ai') ? "sparkles" : "sparkles-outline"} size={size} color={segments.includes('my-ai') ? '#aa48b7' : '#fff'} />}
-                        onPress={() => navigateTo('/(tabs)/my-ai')}
-                        style={[styles.drawerItem, segments.includes('my-ai') && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
-                    />
-                    <DrawerItem
-                        label="Feed"
-                        labelStyle={[styles.drawerLabel, segments.includes('feed') && { color: '#aa48b7' }]}
-                        icon={({ size }) => <Ionicons name={segments.includes('feed') ? "play" : "play-outline"} size={size} color={segments.includes('feed') ? '#aa48b7' : '#fff'} />}
-                        onPress={() => navigateTo('/feed')}
-                        style={[styles.drawerItem, segments.includes('feed') && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
-                    />
-                    <DrawerItem
                         label="Community"
                         labelStyle={[styles.drawerLabel, segments.includes('community') && { color: '#aa48b7' }]}
                         icon={({ size }) => <Ionicons name={segments.includes('community') ? "people" : "people-outline"} size={size} color={segments.includes('community') ? '#aa48b7' : '#fff'} />}
                         onPress={() => navigateTo('/(tabs)/community')}
                         style={[styles.drawerItem, segments.includes('community') && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
                     />
+                    <DrawerItem
+                        label="My AI"
+                        labelStyle={[styles.drawerLabel, segments.includes('my-ai') && { color: '#aa48b7' }]}
+                        icon={({ size }) => <Ionicons name={segments.includes('my-ai') ? "sparkles" : "sparkles-outline"} size={size} color={segments.includes('my-ai') ? '#aa48b7' : '#fff'} />}
+                        onPress={() => navigateTo('/(tabs)/my-ai')}
+                        style={[styles.drawerItem, segments.includes('my-ai') && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
+                    />
+                    
                 </View>
 
                 {/* Dynamic Upgrade/Auth Button */}

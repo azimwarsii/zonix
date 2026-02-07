@@ -1,0 +1,74 @@
+[debug] [2026-02-06T22:24:46.284Z] ----------------------------------------------------------------------
+[debug] [2026-02-06T22:24:46.286Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\Azim\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js deploy --only functions
+[debug] [2026-02-06T22:24:46.286Z] CLI Version:   15.5.1
+[debug] [2026-02-06T22:24:46.286Z] Platform:      win32
+[debug] [2026-02-06T22:24:46.286Z] Node Version:  v24.11.1
+[debug] [2026-02-06T22:24:46.286Z] Time:          Sat Feb 07 2026 03:54:46 GMT+0530 (India Standard Time)
+[debug] [2026-02-06T22:24:46.286Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-02-06T22:24:47.385Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-02-06T22:24:47.386Z] > authorizing via signed-in user (azimahmed356@gmail.com)
+[debug] [2026-02-06T22:24:47.386Z] [iam] checking project zonix-36dc1 for permissions ["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]
+[debug] [2026-02-06T22:24:47.386Z] Checked if tokens are valid: false, expires at: 1770415118259
+[debug] [2026-02-06T22:24:47.387Z] Checked if tokens are valid: false, expires at: 1770415118259
+[debug] [2026-02-06T22:24:47.387Z] > refreshing access token with scopes: []
+[debug] [2026-02-06T22:24:47.388Z] >>> [apiv2][query] POST https://www.googleapis.com/oauth2/v3/token [none]
+[debug] [2026-02-06T22:24:47.388Z] >>> [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-02-06T22:24:47.583Z] <<< [apiv2][status] POST https://www.googleapis.com/oauth2/v3/token 200
+[debug] [2026-02-06T22:24:47.583Z] <<< [apiv2][body] POST https://www.googleapis.com/oauth2/v3/token [omitted]
+[debug] [2026-02-06T22:24:47.586Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/zonix-36dc1:testIamPermissions [none]
+[debug] [2026-02-06T22:24:47.586Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/zonix-36dc1:testIamPermissions  x-goog-user-project=zonix-36dc1
+[debug] [2026-02-06T22:24:47.587Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/zonix-36dc1:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-02-06T22:24:48.941Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/zonix-36dc1:testIamPermissions 200
+[debug] [2026-02-06T22:24:48.941Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/zonix-36dc1:testIamPermissions {"permissions":["cloudfunctions.functions.create","cloudfunctions.functions.delete","cloudfunctions.functions.get","cloudfunctions.functions.list","cloudfunctions.functions.update","cloudfunctions.operations.get","firebase.projects.get"]}
+[debug] [2026-02-06T22:24:48.941Z] Checked if tokens are valid: true, expires at: 1770420286583
+[debug] [2026-02-06T22:24:48.941Z] Checked if tokens are valid: true, expires at: 1770420286583
+[debug] [2026-02-06T22:24:48.941Z] >>> [apiv2][query] POST https://iam.googleapis.com/v1/projects/zonix-36dc1/serviceAccounts/zonix-36dc1@appspot.gserviceaccount.com:testIamPermissions [none]
+[debug] [2026-02-06T22:24:48.941Z] >>> [apiv2][body] POST https://iam.googleapis.com/v1/projects/zonix-36dc1/serviceAccounts/zonix-36dc1@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[debug] [2026-02-06T22:24:50.608Z] <<< [apiv2][status] POST https://iam.googleapis.com/v1/projects/zonix-36dc1/serviceAccounts/zonix-36dc1@appspot.gserviceaccount.com:testIamPermissions 200
+[debug] [2026-02-06T22:24:50.608Z] <<< [apiv2][body] POST https://iam.googleapis.com/v1/projects/zonix-36dc1/serviceAccounts/zonix-36dc1@appspot.gserviceaccount.com:testIamPermissions {"permissions":["iam.serviceAccounts.actAs"]}
+[info] 
+[info] === Deploying to 'zonix-36dc1'...
+[info] 
+[info] i  deploying functions 
+[debug] [2026-02-06T22:24:50.610Z] Checked if tokens are valid: true, expires at: 1770420286583
+[debug] [2026-02-06T22:24:50.610Z] Checked if tokens are valid: true, expires at: 1770420286583
+[debug] [2026-02-06T22:24:50.610Z] >>> [apiv2][query] GET https://cloudresourcemanager.googleapis.com/v1/projects/zonix-36dc1 [none]
+[debug] [2026-02-06T22:24:50.921Z] <<< [apiv2][status] GET https://cloudresourcemanager.googleapis.com/v1/projects/zonix-36dc1 200
+[debug] [2026-02-06T22:24:50.921Z] <<< [apiv2][body] GET https://cloudresourcemanager.googleapis.com/v1/projects/zonix-36dc1 {"projectNumber":"1089756321378","projectId":"zonix-36dc1","lifecycleState":"ACTIVE","name":"zonix","labels":{"firebase":"enabled","firebase-core":"disabled"},"createTime":"2026-02-03T04:24:35.953021Z"}
+[info] i  functions: preparing codebase default for deployment 
+[info] i  functions: ensuring required API cloudfunctions.googleapis.com is enabled... 
+[info] i  functions: ensuring required API cloudbuild.googleapis.com is enabled... 
+[info] i  artifactregistry: ensuring required API artifactregistry.googleapis.com is enabled... 
+[debug] [2026-02-06T22:24:50.922Z] Checked if tokens are valid: true, expires at: 1770420286583
+[debug] [2026-02-06T22:24:50.922Z] Checked if tokens are valid: true, expires at: 1770420286583
+[debug] [2026-02-06T22:24:50.922Z] >>> [apiv2][query] GET https://firebase.googleapis.com/v1beta1/projects/zonix-36dc1/adminSdkConfig [none]
+[debug] [2026-02-06T22:24:51.893Z] <<< [apiv2][status] GET https://firebase.googleapis.com/v1beta1/projects/zonix-36dc1/adminSdkConfig 200
+[debug] [2026-02-06T22:24:51.893Z] <<< [apiv2][body] GET https://firebase.googleapis.com/v1beta1/projects/zonix-36dc1/adminSdkConfig {"projectId":"zonix-36dc1","databaseURL":"https://zonix-36dc1-default-rtdb.firebaseio.com","storageBucket":"zonix-36dc1.firebasestorage.app"}
+[debug] [2026-02-06T22:24:51.893Z] Checked if tokens are valid: true, expires at: 1770420286583
+[debug] [2026-02-06T22:24:51.893Z] Checked if tokens are valid: true, expires at: 1770420286583
+[debug] [2026-02-06T22:24:51.893Z] >>> [apiv2][query] GET https://runtimeconfig.googleapis.com/v1beta1/projects/zonix-36dc1/configs [none]
+[debug] [2026-02-06T22:24:53.136Z] <<< [apiv2][status] GET https://runtimeconfig.googleapis.com/v1beta1/projects/zonix-36dc1/configs 200
+[debug] [2026-02-06T22:24:53.137Z] <<< [apiv2][body] GET https://runtimeconfig.googleapis.com/v1beta1/projects/zonix-36dc1/configs {}
+[debug] [2026-02-06T22:24:53.137Z] Validating nodejs source
+[warn] !  functions: package.json indicates an outdated version of firebase-functions. Please upgrade using npm install --save firebase-functions@latest in your functions directory. 
+[warn] !  functions: Please note that there will be breaking changes when you upgrade. 
+[debug] [2026-02-06T22:24:53.785Z] > [functions] package.json contents: {
+  "name": "functions",
+  "description": "Cloud Functions for Zonix RevenueCat Integration",
+  "dependencies": {
+    "firebase-admin": "^12.0.0",
+    "firebase-functions": "^6.0.0",
+    "openai": "^4.28.0"
+  },
+  "private": true,
+  "engines": {
+    "node": "22"
+  }
+}
+[debug] [2026-02-06T22:24:53.785Z] Building nodejs source
+[info] i  functions: Loading and analyzing source code for codebase default to determine what to deploy 
+[debug] [2026-02-06T22:24:53.786Z] Could not find functions.yaml. Must use http discovery
+[debug] [2026-02-06T22:24:53.792Z] Found firebase-functions binary at 'C:\Users\Azim\.gemini\antigravity\scratch\zonix\functions\node_modules\.bin\firebase-functions'
+[info] Serving at port 8282
+

@@ -12,18 +12,39 @@ import Animated, {
     withTiming
 } from 'react-native-reanimated';
 
+const formatNumber = (num: number | string | undefined) => {
+    if (!num) return '0';
+    const n = Number(num);
+    if (isNaN(n)) return '0';
+
+    if (n >= 1000000000) {
+        return (n / 1000000000).toFixed(1).replace(/\.0$/, '') + 'B';
+    }
+    if (n >= 1000000) {
+        return (n / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+    }
+    if (n >= 1000) {
+        return (n / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+    }
+    return n.toString();
+};
+
 type CharacterCardProps = {
     name: string;
     description: string;
-    likes: number;
-    comments: string;
+    specialization?: string;
+    likes: number | string;
+    followers: number | string;
+    comments: number | string;
     imageUrl: string;
     isSale?: boolean;
+    isVerified?: boolean;
     width?: number;
     height?: number;
+    onPress?: () => void;
 };
 
-export default function CharacterCard({ name, description, likes, comments, imageUrl, isSale, width: propWidth, height: propHeight }: CharacterCardProps) {
+export default function CharacterCard({ name, description, specialization, likes, followers, comments, imageUrl, isSale, isVerified, width: propWidth, height: propHeight, onPress }: CharacterCardProps) {
     const [isLoaded, setIsLoaded] = React.useState(false);
     const shimmerValue = useSharedValue(0);
 
@@ -49,7 +70,7 @@ export default function CharacterCard({ name, description, likes, comments, imag
     ];
 
     return (
-        <Pressable style={cardStyle}>
+        <Pressable style={cardStyle} onPress={onPress}>
             {!isLoaded && (
                 <View style={[StyleSheet.absoluteFill, styles.skeletonContainer]}>
                     <Animated.View style={[styles.shimmer, shimmerStyle]}>
@@ -74,18 +95,27 @@ export default function CharacterCard({ name, description, likes, comments, imag
                 style={styles.gradient}
             >
                 <Text style={styles.name}>{name}</Text>
+                {specialization ? (
+                    <Text style={styles.specialization}>{specialization}</Text>
+                ) : null}
                 <Text style={styles.description} numberOfLines={2}>{description}</Text>
 
                 <View style={styles.statsRow}>
                     <View style={styles.stat}>
-                        <Ionicons name="heart" size={12} color="#aa48b7" />
-                        <Text style={styles.statText}>{likes}</Text>
+                        <Ionicons name="heart" size={12} color="#fff" />
+                        <Text style={styles.statText}>{formatNumber(likes)}</Text>
                     </View>
                     <View style={styles.stat}>
-                        <Ionicons name="chatbubble" size={12} color="#aa48b7" />
-                        <Text style={styles.statText}>{comments}</Text>
+                        <Ionicons name="people" size={12} color="#fff" />
+                        <Text style={styles.statText}>{formatNumber(followers)}</Text>
                     </View>
-                    <MaterialIcons name="verified" size={16} color="#0095f6" style={{ marginLeft: 'auto' }} />
+                    <View style={styles.stat}>
+                        <Ionicons name="chatbubble" size={12} color="#fff" />
+                        <Text style={styles.statText}>{formatNumber(comments)}</Text>
+                    </View>
+                    {isVerified && (
+                        <MaterialIcons name="verified" size={16} color="#0095f6" style={{ marginLeft: 'auto' }} />
+                    )}
                 </View>
             </LinearGradient>
 
@@ -128,20 +158,28 @@ const styles = StyleSheet.create({
     name: {
         color: '#fff',
         fontSize: 28,
-        marginBottom: 4,
+        marginBottom: 2,
         fontFamily: Fonts.bold,
+        lineHeight: 34,
+    },
+    specialization: {
+        color: '#ccc',
+        fontSize: 12,
+        marginBottom: 4,
+        fontFamily: Fonts.body,
+        lineHeight: 16,
     },
     description: {
         color: '#aa48b7',
-        fontSize: 16,
+        fontSize: 13,
         marginBottom: 8,
-        lineHeight: 20,
+        lineHeight: 18,
         fontFamily: Fonts.body,
     },
     statsRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
+        justifyContent: 'flex-start', // Changed to flex-start + gap? No, keep logic but allow auto margin
     },
     stat: {
         flexDirection: 'row',
@@ -149,8 +187,10 @@ const styles = StyleSheet.create({
         marginRight: 12,
     },
     statText: {
-        color: '#aa48b7',
-        fontSize: 16,
+        color: '#fff', // White explicitly requested? "icons same color white" was previous request. Text color usually matches or is light grey.
+        // User asked "give these icons same color white". I did that.
+        // Now "reduce font size of the stats".
+        fontSize: 13,
         marginLeft: 4,
         fontFamily: Fonts.body,
     },

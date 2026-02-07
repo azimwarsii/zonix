@@ -5,14 +5,15 @@ import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import firestore from '@react-native-firebase/firestore';
-import functions from '@react-native-firebase/functions';
 import storage from '@react-native-firebase/storage';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useRef, useState } from 'react';
 import * as RN from 'react-native';
 import {
+    ActivityIndicator,
     Alert,
     Dimensions,
     FlatList,
@@ -29,10 +30,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { useRouter } from 'expo-router';
-
 const { width } = Dimensions.get('window');
-
 
 const EXPERTISE_OPTIONS = [
     "Business Strategy", "Life Coaching", "Software Engineering",
@@ -49,7 +47,12 @@ const ESSENCE_OPTIONS = {
     "Presence": ["Authority", "Co-Pilot", "Shadow", "Inspirational", "Mentor", "Challenger"]
 };
 
-export default function CreateScreen() {
+export default function EditCoachScreen() {
+    const { id } = useLocalSearchParams();
+    const router = useRouter();
+    const { user } = useAuth();
+
+    const [loadingData, setLoadingData] = useState(true);
     const [name, setName] = useState('');
     const [experience, setExperience] = useState(0);
     const [expertise, setExpertise] = useState<string | null>(null);
@@ -60,10 +63,19 @@ export default function CreateScreen() {
     const [primaryGreeting, setPrimaryGreeting] = useState('');
     const [whoAmI, setWhoAmI] = useState('');
     const [showAdvanced, setShowAdvanced] = useState(false);
+    const [activeEssencePicker, setActiveEssencePicker] = useState<string | null>(null);
     const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
     const [showAuthModal, setShowAuthModal] = useState(false);
-    const [isCreating, setIsCreating] = useState(false);
+    const [isUpdating, setIsUpdating] = useState(false);
     const [validationErrors, setValidationErrors] = useState<string[]>([]);
+    const [essences, setEssences] = useState<any>({
+        "Talk Style": null,
+        "Temperament": null,
+        "Focus Area": null,
+        "Approach": null,
+        "Insight Level": null,
+        "Presence": null
+    });
     const [socialLinks, setSocialLinks] = useState({
         instagram: '',
         twitter: '',
@@ -82,8 +94,43 @@ export default function CreateScreen() {
         }, 800);
     };
 
-    const router = useRouter();
-    const { user, userData } = useAuth();
+    useEffect(() => {
+        const fetchCoachData = async () => {
+            if (!id) return;
+            try {
+                const doc = await firestore().collection('coaches').doc(id as string).get();
+                // @ts-ignore
+                if (doc.exists) {
+                    const data = doc.data() as any;
+                    setName(data.name || '');
+                    setExperience(data.yearsOfExpertise || 0);
+                    setExpertise(data.specialization || null);
+                    setPortraitImage(data.portraitUrl || null);
+                    if (data.essence) {
+                        setEssences(data.essence);
+                    }
+                    if (data.advanced) {
+                        setPrimaryGreeting(data.advanced.primaryGreeting || '');
+                        setWhoAmI(data.advanced.whoAmI || '');
+                        setSocialLinks(data.advanced.socialLinks || { instagram: '', twitter: '', linkedin: '', tiktok: '', youtube: '' });
+                    }
+                    if (data.knowledge) {
+                        setKnowledgeBaseText(data.knowledge.textRecords || '');
+                    }
+                } else {
+                    Alert.alert('Error', 'Coach not found.');
+                    router.back();
+                }
+            } catch (error) {
+                console.error('Error fetching coach:', error);
+                Alert.alert('Error', 'Failed to load coach details.');
+            } finally {
+                setLoadingData(false);
+            }
+        };
+
+        fetchCoachData();
+    }, [id]);
 
     useEffect(() => {
         const keyboardDidShowListener = Keyboard.addListener(
@@ -101,21 +148,12 @@ export default function CreateScreen() {
         };
     }, []);
 
-    // Essence states
-    const [essences, setEssences] = useState<Record<string, string | null>>({
-        "Talk Style": null,
-        "Temperament": null,
-        "Focus Area": null,
-        "Approach": null,
-        "Insight Level": null,
-        "Presence": null
-    });
-
-    const [activeEssencePicker, setActiveEssencePicker] = useState<string | null>(null);
-
-    const handleEssenceSelect = (label: string, value: string) => {
-        setEssences(prev => ({ ...prev, [label]: value }));
-        setValidationErrors(prev => prev.filter(err => err !== label));
+    const handleEssenceSelect = (category: string, value: string) => {
+        setEssences((prev: any) => {
+            const newEssences = { ...prev, [category]: value };
+            if (value) setValidationErrors(errors => errors.filter(err => err !== category));
+            return newEssences;
+        });
         setActiveEssencePicker(null);
     };
 
@@ -159,41 +197,6 @@ export default function CreateScreen() {
         );
     };
 
-    const resetForm = () => {
-        setName('');
-        setExperience(0);
-        setExpertise(null);
-        setPortraitImage(null);
-        setActiveAdvancedModal(null);
-        setKnowledgeBaseText('');
-        setPrimaryGreeting('');
-        setWhoAmI('');
-        setValidationErrors([]);
-        setEssences({
-            "Talk Style": null,
-            "Temperament": null,
-            "Focus Area": null,
-            "Approach": null,
-            "Insight Level": null,
-            "Presence": null
-        });
-        setSocialLinks({
-            instagram: '',
-            twitter: '',
-            linkedin: '',
-            tiktok: '',
-            youtube: '',
-        });
-    };
-
-    const handleNext = () => {
-        if (!user) {
-            setShowAuthModal(true);
-            return;
-        }
-        handleCreateCoach();
-    };
-
     const validateForm = () => {
         const errors: string[] = [];
         if (!name.trim()) errors.push('name');
@@ -208,109 +211,92 @@ export default function CreateScreen() {
         return errors.length === 0;
     };
 
-    const handleCreateCoach = async () => {
+    const handleUpdateCoach = async () => {
         if (!validateForm()) {
-            Alert.alert('Missing Fields', 'Please fill in all highlighted fields before forging your coach.');
+            Alert.alert('Missing Fields', 'Please fill in all highlighted fields.');
             return;
         }
 
-        setIsCreating(true);
+        setIsUpdating(true);
         try {
-            console.log('Preparing coach data and uploading assets...');
-            const coachId = firestore().collection('coaches').doc().id;
+            console.log('Updating coach data...');
+            const coachId = id as string;
             let finalPortraitUrl = portraitImage;
 
-            // Handle portrait image upload if it's a local file
+            // Handle portrait image upload if it's a local file (changed)
             if (portraitImage && portraitImage.startsWith('file://')) {
-                try {
-                    console.log('--- STORAGE UPLOAD START ---');
-                    const filePath = portraitImage.replace('file://', '');
-                    const storagePath = `coaches/${coachId}/portrait.jpg`;
-                    const reference = storage().ref(storagePath);
+                const filePath = portraitImage.replace('file://', '');
+                const storagePath = `coaches/${coachId}/portrait.jpg`;
+                const reference = storage().ref(storagePath);
 
-                    console.log('Local File:', filePath);
-                    console.log('Storage Reference:', storagePath);
-                    console.log('Full Ref:', reference.toString());
+                await reference.putFile(filePath);
 
-                    // Perform upload and wait for it to finish
-                    await reference.putFile(filePath);
-                    console.log('putFile finished successfully');
+                // Retry specific logic from create.tsx preserved roughly
+                await new Promise(resolve => setTimeout(resolve, 500));
 
-                    // Small delay to ensure eventual consistency (sometimes needed on new buckets)
-                    await new Promise(resolve => setTimeout(resolve, 500));
-
-                    // Attempt to get download URL with a simple retry
-                    let downloadUrl = '';
-                    for (let attempt = 1; attempt <= 3; attempt++) {
-                        try {
-                            downloadUrl = await reference.getDownloadURL();
-                            if (downloadUrl) break;
-                        } catch (urlErr) {
-                            console.log(`getDownloadURL attempt ${attempt} failed, retrying...`);
-                            if (attempt === 3) throw urlErr;
-                            await new Promise(resolve => setTimeout(resolve, 1000));
-                        }
+                let downloadUrl = '';
+                for (let attempt = 1; attempt <= 3; attempt++) {
+                    try {
+                        downloadUrl = await reference.getDownloadURL();
+                        if (downloadUrl) break;
+                    } catch (urlErr) {
+                        if (attempt === 3) throw urlErr;
+                        await new Promise(resolve => setTimeout(resolve, 1000));
                     }
-
-                    finalPortraitUrl = downloadUrl;
-                    console.log('Final Download URL:', finalPortraitUrl);
-                    console.log('--- STORAGE UPLOAD END ---');
-                } catch (uploadError: any) {
-                    console.error('CRITICAL STORAGE ERROR:', uploadError);
-                    let errorMsg = uploadError.message;
-                    if (uploadError.code === 'storage/object-not-found') {
-                        errorMsg = 'Internal sync error: Upload succeeded but file not found. Please try again.';
-                    } else if (uploadError.code === 'storage/unauthorized') {
-                        errorMsg = 'Permission denied: Check Storage Rules.';
-                    }
-                    throw new Error(errorMsg);
                 }
+                finalPortraitUrl = downloadUrl;
             }
 
-            console.log('Calling createCoach Cloud Function with ID:', coachId);
-            const result = (await functions().httpsCallable('createCoach')({
-                coachId,
+            await firestore().collection('coaches').doc(coachId).update({
                 name,
-                type: 'clone',
-                portraitUrl: finalPortraitUrl,
                 specialization: expertise,
                 yearsOfExpertise: experience,
+                portraitUrl: finalPortraitUrl,
                 essence: essences,
+                updatedAt: firestore.FieldValue.serverTimestamp(),
                 advanced: {
                     primaryGreeting,
                     whoAmI,
                     socialLinks
                 },
                 knowledge: {
-                    textRecords: knowledgeBaseText
+                    textRecords: knowledgeBaseText,
+                    lastSyncAt: firestore.FieldValue.serverTimestamp() // Assuming knowledge updated
                 }
-            })) as any;
+            });
 
-            if (result.data.success) {
-                Alert.alert(
-                    'Coach Created!',
-                    `Your coach "${name}" has been forged. 5 credits have been deducted.`,
-                    [{
-                        text: 'Great!',
-                        onPress: () => {
-                            resetForm();
-                            router.push('/(tabs)');
-                        }
-                    }]
-                );
-            }
-        } catch (error: any) {
-            console.error('Create Coach Error:', error);
             Alert.alert(
-                'Creation Failed',
+                'Coach Updated!',
+                `Your coach "${name}" has been updated successfully.`,
+                [{
+                    text: 'Great',
+                    onPress: () => {
+                        router.back();
+                    }
+                }]
+            );
+
+        } catch (error: any) {
+            console.error('Update Coach Error:', error);
+            Alert.alert(
+                'Update Failed',
                 error.message || 'An unexpected error occurred. Please try again later.'
             );
         } finally {
-            setIsCreating(false);
+            setIsUpdating(false);
         }
     };
 
-
+    if (loadingData) {
+        return (
+            <SafeAreaView style={styles.container}>
+                <Header />
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color="#aa48b7" />
+                </View>
+            </SafeAreaView>
+        );
+    }
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
@@ -319,18 +305,21 @@ export default function CreateScreen() {
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
+                {/* Back Button */}
+                <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+                    <Ionicons name="arrow-back" size={24} color="#fff" />
+                    <ThemedText style={styles.backButtonText}>Back</ThemedText>
+                </TouchableOpacity>
+
                 {/* Title */}
                 <View style={styles.headerTextContainer}>
-                    <ThemedText style={styles.mainTitle}>Forge Your AI Coach</ThemedText>
+                    <ThemedText style={styles.mainTitle}>Edit Profile Details</ThemedText>
                     <ThemedText style={styles.descriptionText}>
-                        Evolve a <Text style={{ color: '#aa48b7', fontFamily: Fonts.bold }}>Digital Twin</Text> to mirror your own wisdom and expertise.
+                        Refine your Digital Twin's identity and knowledge.
                     </ThemedText>
                 </View>
 
-
-
                 <View style={styles.imageUploadSection}>
-
                     <TouchableOpacity
                         style={[
                             styles.imagePlaceholder,
@@ -351,7 +340,6 @@ export default function CreateScreen() {
                             </>
                         )}
                     </TouchableOpacity>
-                    {/* <ThemedText style={styles.sectionLabel}>Portrait Selection</ThemedText> */}
                 </View>
 
                 <View style={styles.inputSection}>
@@ -487,9 +475,9 @@ export default function CreateScreen() {
             {/* Bottom Navigation */}
             <View style={styles.bottomBar}>
                 <TouchableOpacity
-                    style={[styles.nextButton, (isCreating || !name) && { opacity: 0.7 }]}
-                    onPress={handleNext}
-                    disabled={isCreating}
+                    style={[styles.nextButton, (isUpdating || !name) && { opacity: 0.7 }]}
+                    onPress={handleUpdateCoach}
+                    disabled={isUpdating}
                 >
                     <LinearGradient
                         colors={['#aa48b7', '#4a148c']}
@@ -499,16 +487,13 @@ export default function CreateScreen() {
                     >
                         <View style={{ alignItems: 'center' }}>
                             <ThemedText style={styles.nextText}>
-                                {isCreating ? 'FORGING...' : 'FORGE AGENT'}
+                                {isUpdating ? 'UPDATING...' : 'UPDATE AGENT'}
                             </ThemedText>
-                            {!isCreating && (
-                                <Text style={styles.creditDeductionText}>-5 Coins</Text>
-                            )}
                         </View>
-                        {isCreating && (
+                        {isUpdating && (
                             <RN.ActivityIndicator size="small" color="#fff" style={{ marginLeft: 12 }} />
                         )}
-                        {!isCreating && <Ionicons name="sparkles" size={20} color="#fff" style={{ marginLeft: 8 }} />}
+                        {!isUpdating && <Ionicons name="sparkles" size={20} color="#fff" style={{ marginLeft: 8 }} />}
                     </LinearGradient>
                 </TouchableOpacity>
             </View>
@@ -610,6 +595,7 @@ export default function CreateScreen() {
                                 {activeAdvancedModal === 'Primary Greeting' && (
                                     <View style={styles.modalSection}>
                                         <ThemedText style={styles.modalSectionLabel}>Greeting Text</ThemedText>
+                                        <ThemedText style={styles.sectionSubLabel}>The first message your coach sends to start the conversation.</ThemedText>
                                         <TextInput
                                             style={styles.modalTextArea}
                                             placeholder="Enter the first thing your coach says..."
@@ -621,88 +607,31 @@ export default function CreateScreen() {
                                                 handleAutoSave();
                                             }}
                                         />
-                                        <View style={styles.infoBox}>
-                                            <Ionicons name="information-circle-outline" size={20} color="#aa48b7" />
-                                            <ThemedText style={styles.infoText}>
-                                                This is the first message users see when starting a chat. Set the tone for the entire interaction.
-                                            </ThemedText>
-                                        </View>
-
-                                        <View style={{ paddingBottom: 40 }}>
-                                            <ThemedText style={styles.guideTitle}>Greeting Tips</ThemedText>
-                                            {[
-                                                "Use a signature welcome or catchphrase",
-                                                "Briefly state how you can help them",
-                                                "End with an open-ended question",
-                                                "Keep it warm and consistent with your 'Talk Style'"
-                                            ].map((item, index) => (
-                                                <View key={index} style={styles.guideItem}>
-                                                    <Text style={styles.guideBullet}>•</Text>
-                                                    <ThemedText style={styles.guideText}>{item}</ThemedText>
-                                                </View>
-                                            ))}
-                                        </View>
                                     </View>
                                 )}
 
                                 {activeAdvancedModal === 'Knowledge Base' && (
-                                    <>
-                                        <View style={styles.modalSection}>
-                                            <ThemedText style={styles.modalSectionLabel}>Text Records</ThemedText>
-                                            <TextInput
-                                                style={styles.modalTextArea}
-                                                placeholder="Paste or write key facts, rules, or data..."
-                                                placeholderTextColor="#444"
-                                                multiline
-                                                value={knowledgeBaseText}
-                                                onChangeText={(txt) => {
-                                                    setKnowledgeBaseText(txt);
-                                                    handleAutoSave();
-                                                }}
-                                            />
-                                        </View>
-                                        <View style={styles.infoBox}>
-                                            <Ionicons name="information-circle-outline" size={20} color="#aa48b7" />
-                                            <ThemedText style={styles.infoText}>
-                                                Paste key facts, rules, or data here. This information will form the core of your AI's knowledge base.
-                                            </ThemedText>
-                                        </View>
-
-                                        <View style={{ paddingBottom: 40 }}>
-                                            <ThemedText style={styles.guideTitle}>What to include?</ThemedText>
-
-                                            {[
-                                                "Personal core values and philosophy",
-                                                "Specific methodologies or frameworks you use",
-                                                "Frequently asked questions (FAQs)",
-                                                "Standard operating procedures (SOPs)",
-                                                "Writing style preferences and common phrases",
-                                                "Key life achievements or milestones"
-                                            ].map((item, index) => (
-                                                <View key={index} style={styles.guideItem}>
-                                                    <Text style={styles.guideBullet}>•</Text>
-                                                    <ThemedText style={styles.guideText}>{item}</ThemedText>
-                                                </View>
-                                            ))}
-
-                                            <TouchableOpacity
-                                                style={[styles.infoBox, { marginTop: 24 }]}
-                                                onPress={() => RN.Linking.openURL('https://docs.google.com/document/d/1oqN4wLYgDMWfUolHtkMOS1SMn1U7FccTytQ-X0Faa3g/edit?usp=sharing')}
-                                            >
-                                                <Ionicons name="document-text-outline" size={20} color="#aa48b7" />
-                                                <ThemedText style={styles.infoText}>
-                                                    See an <Text style={styles.exampleLink}>Example Knowledge Base</Text> to understand the ideal formatting.
-                                                </ThemedText>
-                                            </TouchableOpacity>
-                                        </View>
-                                    </>
+                                    <View style={styles.modalSection}>
+                                        <ThemedText style={styles.modalSectionLabel}>Text Records</ThemedText>
+                                        <ThemedText style={styles.sectionSubLabel}>Paste key facts, rules, or data that your coach should know.</ThemedText>
+                                        <TextInput
+                                            style={styles.modalTextArea}
+                                            placeholder="Paste or write key facts, rules, or data..."
+                                            placeholderTextColor="#444"
+                                            multiline
+                                            value={knowledgeBaseText}
+                                            onChangeText={(txt) => {
+                                                setKnowledgeBaseText(txt);
+                                                handleAutoSave();
+                                            }}
+                                        />
+                                    </View>
                                 )}
-
-
 
                                 {activeAdvancedModal === 'Who Am I?' && (
                                     <View style={styles.modalSection}>
                                         <ThemedText style={styles.modalSectionLabel}>Bio & Identity</ThemedText>
+                                        <ThemedText style={styles.sectionSubLabel}>Define this entity's origin story, personality, and ultimate purpose.</ThemedText>
                                         <TextInput
                                             style={styles.modalTextArea}
                                             placeholder="Define this entity's origin story and ultimate purpose..."
@@ -714,40 +643,13 @@ export default function CreateScreen() {
                                                 handleAutoSave();
                                             }}
                                         />
-                                        <View style={styles.infoBox}>
-                                            <Ionicons name="information-circle-outline" size={20} color="#aa48b7" />
-                                            <ThemedText style={styles.infoText}>
-                                                Define the core identity, background, and mission of your coach. This is their foundation.
-                                            </ThemedText>
-                                        </View>
-
-                                        <View style={{ paddingBottom: 40 }}>
-                                            <ThemedText style={styles.guideTitle}>What to include?</ThemedText>
-                                            {[
-                                                "Origin story and professional background",
-                                                "Ultimate mission and why they coach",
-                                                "Core beliefs and non-negotiables",
-                                                "Personal life details (if applicable)"
-                                            ].map((item, index) => (
-                                                <View key={index} style={styles.guideItem}>
-                                                    <Text style={styles.guideBullet}>•</Text>
-                                                    <ThemedText style={styles.guideText}>{item}</ThemedText>
-                                                </View>
-                                            ))}
-                                        </View>
                                     </View>
                                 )}
 
                                 {activeAdvancedModal === 'Social Links' && (
                                     <View style={styles.modalSection}>
                                         <ThemedText style={styles.modalSectionLabel}>Connect Social Media</ThemedText>
-
-                                        <View style={[styles.infoBox, { marginBottom: 20 }]}>
-                                            <Ionicons name="information-circle-outline" size={20} color="#aa48b7" />
-                                            <ThemedText style={styles.infoText}>
-                                                Connect your coach's digital presence. This allows users to find you on other platforms and boosts credibility.
-                                            </ThemedText>
-                                        </View>
+                                        <ThemedText style={styles.sectionSubLabel}>Add links to your social profiles to display on the coach's page.</ThemedText>
 
                                         <View style={styles.socialInputRow}>
                                             <Ionicons name="logo-instagram" size={24} color="#E4405F" style={styles.socialIcon} />
@@ -798,22 +700,6 @@ export default function CreateScreen() {
                                         </View>
 
                                         <View style={styles.socialInputRow}>
-                                            <Ionicons name="logo-tiktok" size={24} color="#fff" style={styles.socialIcon} />
-                                            <View style={[styles.modalInputWrapper, { flex: 1 }]}>
-                                                <TextInput
-                                                    style={styles.modalInput}
-                                                    placeholder="TikTok Username"
-                                                    placeholderTextColor="#444"
-                                                    value={socialLinks.tiktok}
-                                                    onChangeText={(txt) => {
-                                                        setSocialLinks(prev => ({ ...prev, tiktok: txt }));
-                                                        handleAutoSave();
-                                                    }}
-                                                />
-                                            </View>
-                                        </View>
-
-                                        <View style={styles.socialInputRow}>
                                             <Ionicons name="logo-youtube" size={24} color="#FF0000" style={styles.socialIcon} />
                                             <View style={[styles.modalInputWrapper, { flex: 1 }]}>
                                                 <TextInput
@@ -823,6 +709,22 @@ export default function CreateScreen() {
                                                     value={socialLinks.youtube}
                                                     onChangeText={(txt) => {
                                                         setSocialLinks(prev => ({ ...prev, youtube: txt }));
+                                                        handleAutoSave();
+                                                    }}
+                                                />
+                                            </View>
+                                        </View>
+
+                                        <View style={styles.socialInputRow}>
+                                            <Ionicons name="logo-tiktok" size={24} color="#000000" style={[styles.socialIcon, { backgroundColor: '#fff', borderRadius: 4 }]} />
+                                            <View style={[styles.modalInputWrapper, { flex: 1 }]}>
+                                                <TextInput
+                                                    style={styles.modalInput}
+                                                    placeholder="TikTok Username"
+                                                    placeholderTextColor="#444"
+                                                    value={socialLinks.tiktok}
+                                                    onChangeText={(txt) => {
+                                                        setSocialLinks(prev => ({ ...prev, tiktok: txt }));
                                                         handleAutoSave();
                                                     }}
                                                 />
@@ -886,69 +788,6 @@ const styles = StyleSheet.create({
         lineHeight: 20,
         marginTop: 8,
     },
-    stepIndicatorContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginVertical: 24,
-    },
-    stepWrapper: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    stepCircle: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: '#1a1a1a',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#333',
-    },
-    activeStepCircle: {
-        backgroundColor: '#aa48b7',
-        borderColor: '#aa48b7',
-    },
-    stepLine: {
-        width: 20,
-        height: 2,
-        backgroundColor: '#333',
-        marginHorizontal: 4,
-    },
-    activeStepLine: {
-        backgroundColor: '#aa48b7',
-    },
-    typeSelectorContainer: {
-        flexDirection: 'row',
-        gap: 12,
-        marginBottom: 32,
-        paddingHorizontal: 4,
-    },
-    typeButton: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#151515',
-        height: 44,
-        borderRadius: 22,
-        borderWidth: 1,
-        borderColor: '#333',
-        gap: 8,
-    },
-    activeTypeButton: {
-        backgroundColor: '#aa48b7',
-        borderColor: '#aa48b7',
-    },
-    typeButtonText: {
-        fontSize: 14,
-        color: '#666',
-        fontFamily: Fonts.bold,
-    },
-    activeTypeButtonText: {
-        color: '#fff',
-    },
     imageUploadSection: {
         marginBottom: 24,
         alignItems: 'center',
@@ -1011,39 +850,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: Fonts.body,
     },
-    horizontalScrollContainer: {
-        paddingHorizontal: 10,
-        alignItems: 'center',
-        height: 60,
-    },
-    agePickerContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#1a1a1a',
-        borderRadius: 12,
-        paddingVertical: 10,
-    },
-    ageItem: {
-        paddingHorizontal: 15,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    activeAgeItem: {
-        backgroundColor: '#aa48b7',
-        borderRadius: 8,
-        height: 44,
-        paddingHorizontal: 20,
-    },
-    ageText: {
-        color: '#444',
-        fontSize: 16,
-        fontFamily: Fonts.bold,
-    },
-    activeAgeText: {
-        color: '#fff',
-        fontSize: 20,
-    },
     gridSection: {
         marginBottom: 24,
     },
@@ -1098,36 +904,6 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontFamily: Fonts.body,
     },
-    advancedItem: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#151515',
-        padding: 16,
-        borderRadius: 12,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: '#222',
-    },
-    advancedLabel: {
-        fontSize: 14,
-        color: '#fff',
-        fontFamily: Fonts.bold,
-    },
-    advancedSubLabel: {
-        fontSize: 12,
-        color: '#666',
-        fontFamily: Fonts.body,
-    },
-    aiButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#111',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#333',
-    },
     actionItem: {
         flexDirection: 'row',
         justifyContent: 'space-between',
@@ -1164,33 +940,9 @@ const styles = StyleSheet.create({
         borderColor: '#ff4444',
         borderWidth: 1.5,
     },
-    buttonContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
     nextText: {
         color: '#fff',
         fontSize: 18,
-        fontFamily: Fonts.bold,
-    },
-    creditDeductionText: {
-        color: 'rgba(255,255,255,0.7)',
-        fontSize: 12,
-        fontFamily: Fonts.regular,
-        marginTop: -2,
-    },
-    creditBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-        marginLeft: 12,
-    },
-    creditText: {
-        color: '#fff',
-        fontSize: 14,
         fontFamily: Fonts.bold,
     },
     modalContainer: {
@@ -1267,56 +1019,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontFamily: Fonts.body,
     },
-    infoBox: {
-        flexDirection: 'row',
-        padding: 12,
-        backgroundColor: 'rgba(170, 72, 183, 0.1)',
-        borderRadius: 12,
-        marginTop: 12,
-        gap: 12,
-        borderWidth: 0.5,
-        borderColor: 'rgba(170, 72, 183, 0.3)',
-    },
-    infoText: {
-        flex: 1,
-        fontSize: 12,
-        color: '#aaa',
-        lineHeight: 18,
-        fontFamily: Fonts.body,
-    },
-    saveButton: {
-        marginTop: 10,
-        marginBottom: 30,
-        borderRadius: 25,
-        overflow: 'hidden',
-    },
-    saveButtonGradient: {
-        height: 50,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    saveButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontFamily: Fonts.bold,
-    },
-    googleLinkButton: {
-        backgroundColor: '#4285F4',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: 50,
-        borderRadius: 12,
-        marginTop: 10,
-    },
-    googleLinkButtonActive: {
-        backgroundColor: '#34A853',
-    },
-    googleLinkText: {
-        color: '#fff',
-        fontSize: 16,
-        fontFamily: Fonts.bold,
-    },
     socialInputRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -1350,33 +1052,16 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#333',
     },
-    exampleLink: {
-        color: '#aa48b7',
-        textDecorationLine: 'underline',
-        fontFamily: Fonts.bold,
-    },
-    guideTitle: {
-        fontSize: 15,
-        fontFamily: Fonts.bold,
-        color: '#fff',
-        marginTop: 24,
-        marginBottom: 12,
-    },
-    guideItem: {
+    backButton: {
         flexDirection: 'row',
-        marginBottom: 8,
-        paddingRight: 10,
+        alignItems: 'center',
+        marginBottom: 10,
+        alignSelf: 'flex-start',
     },
-    guideBullet: {
-        color: '#aa48b7',
+    backButtonText: {
+        color: '#fff',
+        marginLeft: 8,
         fontSize: 16,
-        marginRight: 10,
-        marginTop: -1,
-    },
-    guideText: {
-        fontSize: 13,
-        color: '#999',
         fontFamily: Fonts.body,
-        lineHeight: 18,
     },
 });
