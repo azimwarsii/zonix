@@ -695,3 +695,153 @@ exports.ingestCoachKnowledge = functions.runWith({ secrets: ['OPENAI_API_KEY'] }
     }
 });
 
+
+/**
+ * RAG + LLM Chat Trigger
+ * Listens for new user messages and generates an AI response.
+ */
+exports.onNewMessage = functions.runWith({
+    secrets: ['OPENAI_API_KEY'],
+    timeoutSeconds: 60,
+    memory: '1GB'
+}).firestore.document('conversations/{conversationId}/messages/{messageId}').onCreate(async (snapshot, context) => {
+    const message = snapshot.data();
+    const { conversationId } = context.params;
+
+    // 1. Only respond to User messages
+    if (message.role !== 'user' || message.isSystem) {
+        return null;
+    }
+
+    console.log(`[Chat] New message from user in conversation: ${conversationId}`);
+
+    const db = admin.firestore();
+    const convRef = db.collection('conversations').doc(conversationId);
+
+    // 2. Fetch Conversation & Coach Context
+    const conversationDoc = await convRef.get();
+    if (!conversationDoc.exists) {
+        console.error(`Conversation ${conversationId} not found.`);
+        return null;
+    }
+    const conversationData = conversationDoc.data();
+    const coachId = conversationData.coachId;
+    const userId = conversationData.userId;
+
+    const coachDoc = await db.collection('coaches').doc(coachId).get();
+    if (!coachDoc.exists) {
+        console.error(`Coach ${coachId} not found.`);
+        return null;
+    }
+    const coachData = coachDoc.data();
+
+    // 3. Initialize OpenAI
+    const { OpenAI } = require('openai');
+    const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+    try {
+        // 4. RAG Implementation (Naive Cosine Similarity)
+        let contextText = "";
+        let sources = [];
+
+        // Check if coach has knowledge
+        const chunksRef = db.collection('coaches').doc(coachId).collection('knowledgeChunks');
+        // Limit query to avoid memory explosion (e.g., scan latest 200 chunks or all if manageable)
+        // ideally we use a vector db. For now, we fetch all (assuming < 500 chunks limit in ingestion).
+        const chunksSnapshot = await chunksRef.get();
+
+        if (!chunksSnapshot.empty) {
+            console.log(`[Chat] Performing RAG search across ${chunksSnapshot.size} chunks...`);
+
+            // Embed user query
+            const queryEmbeddingRes = await openai.embeddings.create({
+                model: "text-embedding-3-small",
+                input: message.content
+            });
+            const queryVector = queryEmbeddingRes.data[0].embedding;
+
+            // Compute Similarities
+            const scoredChunks = chunksSnapshot.docs.map(doc => {
+                const data = doc.data();
+                const similarity = cosineSimilarity(queryVector, data.embedding);
+                return { ...data, id: doc.id, similarity };
+            });
+
+            // Top K (e.g., Top 3)
+            scoredChunks.sort((a, b) => b.similarity - a.similarity);
+            const topChunks = scoredChunks.slice(0, 3).filter(c => c.similarity > 0.3); // Threshold
+
+            if (topChunks.length > 0) {
+                contextText = topChunks.map(c => c.text).join("\n\n---\n\n");
+                sources = topChunks.map(c => ({ id: c.id, similarity: c.similarity, docLabel: c.docLabel }));
+                console.log(`[Chat] Found ${topChunks.length} relevant chunks.`);
+            }
+        }
+
+        // 5. Construct System Prompt
+        const systemPrompt = `
+You are ${coachData.name}, a ${coachData.type} AI Coach specialized in ${coachData.specialization}.
+Your core essence is: ${JSON.stringify(coachData.essence || {})}
+Who Am I: ${coachData.advanced?.whoAmI || "Not specified."}
+Greeting Style: ${coachData.advanced?.primaryGreeting || "standard."}
+
+Instructions:
+- Be helpful, empathetic, and stay in character.
+- Keep responses concise (under 200 words) unless asked for details.
+- Use the provided context (Knowledge Base) to answer questions if relevant.
+- If the context doesn't have the answer, use your general knowledge but mention you are answering generally.
+
+Knowledge Base Context:
+${contextText || "No context found."}
+`;
+
+        // 6. Generate Response
+        const completion = await openai.chat.completions.create({
+            model: "gpt-4o-mini", // Cost-effective
+            messages: [
+                { role: "system", content: systemPrompt },
+                // Ideally include chat history here (fetch last N messages)
+                { role: "user", content: message.content }
+            ],
+            max_tokens: 500
+        });
+
+        const reply = completion.choices[0].message.content;
+        const usage = completion.usage;
+
+        // 7. Save Assistant Response
+        await convRef.collection('messages').add({
+            role: 'assistant',
+            content: reply,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            ragSources: sources,
+            tokenUsage: usage,
+            userId: userId
+        });
+
+        // 8. Update Conversation Stats
+        await convRef.update({
+            lastMessageAt: admin.firestore.FieldValue.serverTimestamp(),
+            tokenUsageTotal: admin.firestore.FieldValue.increment(usage.total_tokens)
+        });
+
+        console.log(`[Chat] Response sent. Tokens: ${usage.total_tokens}`);
+
+    } catch (error) {
+        console.error('[Chat] Error generating response:', error);
+        // Fallback or error handling
+    }
+});
+
+// Helper: Cosine Similarity
+function cosineSimilarity(vecA, vecB) {
+    let dotProduct = 0;
+    let magnitudeA = 0;
+    let magnitudeB = 0;
+    for (let i = 0; i < vecA.length; i++) {
+        dotProduct += vecA[i] * vecB[i];
+        magnitudeA += vecA[i] * vecA[i];
+        magnitudeB += vecB[i] * vecB[i];
+    }
+    return dotProduct / (Math.sqrt(magnitudeA) * Math.sqrt(magnitudeB));
+}

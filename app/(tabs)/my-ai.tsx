@@ -105,6 +105,8 @@ export default function MyAIScreen() {
                     isVerified={item.isVerified}
                     width={cardWidth}
                     height={cardWidth * 1.5}
+                    onPress={() => router.push({ pathname: '/coach/[id]', params: { id: item.id } })}
+                    onMessagePress={() => router.push({ pathname: '/message/[id]', params: { id: item.id } })}
                 />
             </TouchableOpacity>
 

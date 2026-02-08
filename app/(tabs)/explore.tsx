@@ -470,6 +470,7 @@ export default function ExploreScreen() {
               width={cardWidth}
               height={cardWidth * 1.6}
               onPress={() => router.push({ pathname: '/coach/[id]', params: { id: item.id } })}
+              onMessagePress={() => router.push({ pathname: '/message/[id]', params: { id: item.id } })}
             />
           )}
         />

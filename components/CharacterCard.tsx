@@ -3,7 +3,7 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import Animated, {
     interpolate,
     useAnimatedStyle,
@@ -42,9 +42,10 @@ type CharacterCardProps = {
     width?: number;
     height?: number;
     onPress?: () => void;
+    onMessagePress?: () => void;
 };
 
-export default function CharacterCard({ name, description, specialization, likes, followers, comments, imageUrl, isSale, isVerified, width: propWidth, height: propHeight, onPress }: CharacterCardProps) {
+export default function CharacterCard({ name, description, specialization, likes, followers, comments, imageUrl, isSale, isVerified, width: propWidth, height: propHeight, onPress, onMessagePress }: CharacterCardProps) {
     const [isLoaded, setIsLoaded] = React.useState(false);
     const shimmerValue = useSharedValue(0);
 
@@ -116,6 +117,15 @@ export default function CharacterCard({ name, description, specialization, likes
                     {isVerified && (
                         <MaterialIcons name="verified" size={16} color="#0095f6" style={{ marginLeft: 'auto' }} />
                     )}
+                </View>
+
+                <View style={styles.buttonRow}>
+                    <TouchableOpacity style={[styles.actionButton, styles.profileBtn]} onPress={onPress}>
+                        <Text style={styles.buttonText}>View Profile</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.actionButton, styles.messageBtn]} onPress={onMessagePress}>
+                        <Text style={styles.buttonText}>Message</Text>
+                    </TouchableOpacity>
                 </View>
             </LinearGradient>
 
@@ -207,5 +217,30 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 10,
         fontFamily: Fonts.bold,
-    }
+    },
+    buttonRow: {
+        flexDirection: 'row',
+        gap: 8,
+        marginTop: 12,
+    },
+    actionButton: {
+        flex: 1,
+        paddingVertical: 8,
+        borderRadius: 8,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    profileBtn: {
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.3)',
+    },
+    messageBtn: {
+        backgroundColor: '#aa48b7',
+    },
+    buttonText: {
+        color: '#fff',
+        fontSize: 12,
+        fontFamily: Fonts.bold,
+    },
 });

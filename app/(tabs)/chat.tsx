@@ -5,12 +5,16 @@ import { ThemedView } from '@/components/themed-view';
 import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import firestore from '@react-native-firebase/firestore';
+import { Image } from 'expo-image';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useRouter } from 'expo-router';
-import React, { useState } from 'react';
+import { useFocusEffect, useRouter } from 'expo-router';
+import React, { useCallback, useState } from 'react';
 import {
     ActivityIndicator,
+    Alert,
     Dimensions,
+    FlatList,
     ScrollView,
     StyleSheet,
     TouchableOpacity,
@@ -23,14 +27,113 @@ const { width } = Dimensions.get('window');
 export default function ChatScreen() {
     const { user, isLoading: authLoading } = useAuth();
     const router = useRouter();
-    const [loadingChats, setLoadingChats] = useState(false); // Placeholder for future chat fetching
-    const [chats, setChats] = useState<any[]>([]); // Placeholder for chat list
+    const [loadingChats, setLoadingChats] = useState(true);
+    const [chats, setChats] = useState<any[]>([]);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
 
     const toggleFaq = (id: string) => {
         setExpandedFaq(expandedFaq === id ? null : id);
     };
+
+    useFocusEffect(
+        useCallback(() => {
+            if (!user) {
+                setLoadingChats(false);
+                return;
+            }
+
+            const fetchChats = async () => {
+                setLoadingChats(true);
+                try {
+                    const snapshot = await firestore()
+                        .collection('conversations')
+                        .where('userId', '==', user.uid)
+                        .orderBy('lastMessageAt', 'desc')
+                        .get();
+
+                    const chatPromises = snapshot.docs.map(async doc => {
+                        const data = doc.data();
+                        // Fetch coach details
+                        let coach = { name: 'Unknown Coach', portraitUrl: '' };
+                        if (data.coachId) {
+                            const coachDoc = await firestore().collection('coaches').doc(data.coachId).get();
+                            if (coachDoc.exists) {
+                                coach = coachDoc.data() as any;
+                            }
+                        }
+
+                        return {
+                            id: doc.id,
+                            ...data,
+                            coach
+                        };
+                    });
+
+                    const chatsData = await Promise.all(chatPromises);
+                    setChats(chatsData);
+                } catch (error) {
+                    console.error('Error fetching chats:', error);
+                } finally {
+                    setLoadingChats(false);
+                }
+            };
+
+            fetchChats();
+        }, [user])
+    );
+
+    const handleDeleteChat = (chatId: string) => {
+        Alert.alert(
+            'Delete Conversation',
+            'Are you sure you want to delete this chat? This cannot be undone.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await firestore().collection('conversations').doc(chatId).delete();
+                            setChats(prev => prev.filter(c => c.id !== chatId));
+                        } catch (error) {
+                            console.error('Error deleting chat:', error);
+                            Alert.alert('Error', 'Failed to delete chat.');
+                        }
+                    }
+                }
+            ]
+        );
+    };
+
+    const renderChatItem = ({ item }: { item: any }) => (
+        <TouchableOpacity
+            style={styles.chatItem}
+            onPress={() => router.push({ pathname: '/message/[id]', params: { id: item.coachId } })}
+            onLongPress={() => handleDeleteChat(item.id)}
+            delayLongPress={500}
+            activeOpacity={0.7}
+        >
+            <Image
+                source={{ uri: item.coach.portraitUrl || 'https://images.unsplash.com/photo-1542385151-efd9000785a0?q=80&w=3000&auto=format&fit=crop' }}
+                style={styles.avatar}
+                contentFit="cover"
+            />
+            <View style={styles.chatInfo}>
+                <View style={styles.chatHeader}>
+                    <ThemedText style={styles.coachName}>{item.coach.name}</ThemedText>
+                    {item.lastMessageAt && (
+                        <ThemedText style={styles.chatTime}>
+                            {item.lastMessageAt?.toDate?.().toLocaleDateString()}
+                        </ThemedText>
+                    )}
+                </View>
+                <ThemedText style={styles.lastMessage} numberOfLines={1}>
+                    Tap to continue conversation...
+                </ThemedText>
+            </View>
+        </TouchableOpacity>
+    );
 
     // -- RENDER STATES --
 
@@ -127,7 +230,7 @@ export default function ChatScreen() {
 
                         <TouchableOpacity
                             style={styles.ctaButton}
-                            onPress={() => router.push('/(tabs)/')} // Go to Explore/Home
+                            onPress={() => router.push('/(tabs)/explore')}
                         >
                             <LinearGradient
                                 colors={['#aa48b7', '#4a148c']}
@@ -139,28 +242,6 @@ export default function ChatScreen() {
                                 <Ionicons name="compass-outline" size={20} color="#fff" />
                             </LinearGradient>
                         </TouchableOpacity>
-                    </View>
-
-                    {/* Quick Start Guide */}
-                    <View style={styles.guideSection}>
-                        <ThemedText style={styles.sectionTitle}>Quick Start Guide</ThemedText>
-
-                        <View style={styles.stepItem}>
-                            <View style={styles.stepNumber}><ThemedText style={styles.stepNumberText}>1</ThemedText></View>
-                            <ThemedText style={styles.stepText}>Browse the <ThemedText style={{ color: '#aa48b7', fontFamily: Fonts.bold }}>Explore</ThemedText> tab to find a coach.</ThemedText>
-                        </View>
-                        <View style={styles.stepLine} />
-
-                        <View style={styles.stepItem}>
-                            <View style={styles.stepNumber}><ThemedText style={styles.stepNumberText}>2</ThemedText></View>
-                            <ThemedText style={styles.stepText}>Tap on their profile to see their details.</ThemedText>
-                        </View>
-                        <View style={styles.stepLine} />
-
-                        <View style={styles.stepItem}>
-                            <View style={styles.stepNumber}><ThemedText style={styles.stepNumberText}>3</ThemedText></View>
-                            <ThemedText style={styles.stepText}>Hit the <ThemedText style={{ color: '#aa48b7', fontFamily: Fonts.bold }}>Chat</ThemedText> button to begin!</ThemedText>
-                        </View>
                     </View>
 
                     {/* FAQ Section */}
@@ -192,22 +273,31 @@ export default function ChatScreen() {
                             </TouchableOpacity>
                         ))}
                     </View>
-
                 </ScrollView>
             </SafeAreaView>
         );
     }
 
-    // 4. Has Chats List (Future Implementation)
+    // 4. Has Chats List
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
             <Header />
             <ThemedView style={styles.headerContainer}>
                 <ThemedText type="title" style={styles.pageTitle}>Your Chats</ThemedText>
             </ThemedView>
-            <View style={styles.centered}>
-                <ThemedText>Chat List Coming Soon...</ThemedText>
-            </View>
+
+            {loadingChats ? (
+                <View style={styles.centered}>
+                    <ActivityIndicator size="large" color="#aa48b7" />
+                </View>
+            ) : (
+                <FlatList
+                    data={chats}
+                    renderItem={renderChatItem}
+                    keyExtractor={item => item.id}
+                    contentContainerStyle={styles.listContent}
+                />
+            )}
         </SafeAreaView>
     );
 }
@@ -389,5 +479,46 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.body,
         color: '#888',
         lineHeight: 20,
+    },
+    listContent: {
+        padding: 16,
+    },
+    chatItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#222',
+        marginBottom: 4,
+    },
+    avatar: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        marginRight: 12,
+        backgroundColor: '#333',
+    },
+    chatInfo: {
+        flex: 1,
+    },
+    chatHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginBottom: 4,
+    },
+    coachName: {
+        fontSize: 16,
+        fontFamily: Fonts.bold,
+        color: '#fff',
+    },
+    chatTime: {
+        fontSize: 12,
+        color: '#666',
+        fontFamily: Fonts.body,
+    },
+    lastMessage: {
+        fontSize: 14,
+        color: '#888',
+        fontFamily: Fonts.body,
     },
 });
