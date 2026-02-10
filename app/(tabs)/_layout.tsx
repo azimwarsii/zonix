@@ -3,12 +3,14 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
 import React from 'react';
-import { Platform } from 'react-native';
 
 import { Fonts } from '@/constants/Fonts';
 
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
 export default function TabLayout() {
   const colorScheme = useColorScheme();
+  const insets = useSafeAreaInsets();
 
   const colors = Colors[colorScheme ?? 'light'];
 
@@ -21,8 +23,8 @@ export default function TabLayout() {
         tabBarStyle: {
           backgroundColor: colors.background,
           borderTopColor: colors.border,
-          height: Platform.OS === 'ios' ? 88 : 60,
-          paddingBottom: Platform.OS === 'ios' ? 28 : 8,
+          height: 60 + insets.bottom,
+          paddingBottom: insets.bottom > 0 ? insets.bottom : 8,
           paddingTop: 8,
         },
         tabBarLabelStyle: {

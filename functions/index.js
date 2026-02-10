@@ -30,8 +30,8 @@ exports.onUserCreate = functions.auth.user().onCreate(async (user) => {
     try {
         await admin.firestore().runTransaction(async (transaction) => {
             const userDoc = await transaction.get(userRef);
-            if (userDoc.exists) {
-                console.log(`User profile already exists for ${uid}. Skipping.`);
+            if (userDoc.exists && userDoc.data()?.userName) {
+                console.log(`User profile already initialized for ${uid}. Skipping.`);
                 return;
             }
 
@@ -54,7 +54,7 @@ exports.onUserCreate = functions.auth.user().onCreate(async (user) => {
             // Generate a unique username
             let userName = `user_${Math.floor(100000 + Math.random() * 900000)}`;
 
-            // Create the profile
+            // Create or merge the profile
             transaction.set(userRef, {
                 userName: userName,
                 email: email,
@@ -72,7 +72,7 @@ exports.onUserCreate = functions.auth.user().onCreate(async (user) => {
 
                 createdAt: admin.firestore.FieldValue.serverTimestamp(),
                 updatedAt: admin.firestore.FieldValue.serverTimestamp(),
-            });
+            }, { merge: true });
 
             console.log(`Successfully created profile for ${uid} with ${creditsToGrant} credits.`);
         });
@@ -393,13 +393,26 @@ exports.createCoach = functions.runWith({ secrets: ['OPENAI_API_KEY'] }).https.o
 
             const userData = userDoc.data();
             const currentCredits = userData.credits || 0;
+            const isPremium = userData.planType === 'Premium';
 
-            // 3. Check for Premium Plan
-            if (userData.planType !== 'Premium') {
-                throw new functions.https.HttpsError('permission-denied', 'You must be a Premium member to create AI Coaches.');
+            // 3. Handle Credits/Permissions
+            if (!isPremium) {
+                // If this is a NEW coach creation, deduct 5 credits
+                if (!coachId) {
+                    if (currentCredits < 5) {
+                        throw new functions.https.HttpsError('failed-precondition', 'You need at least 5 coins to forge a new AI Coach. Upgrade to Premium for unlimited forging!');
+                    }
+
+                    // Deduct credits
+                    transaction.update(userRef, {
+                        credits: admin.firestore.FieldValue.increment(-5),
+                        updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                    });
+                    console.log(`Deducted 5 credits from Non-Premium User ${uid}. Remaining: ${currentCredits - 5}`);
+                }
             }
 
-            // 4. Create the Coach Document
+            // 4. Create or Update the Coach Document
             const coachRef = coachId ? admin.firestore().collection('coaches').doc(coachId) : admin.firestore().collection('coaches').doc();
             const coachData = {
                 id: coachRef.id,

@@ -11,6 +11,7 @@ import 'react-native-reanimated';
 
 import CustomDrawerContent from '@/components/CustomDrawerContent';
 import { useColorScheme } from '@/hooks/use-color-scheme';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { AuthProvider } from '../context/AuthContext';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -57,11 +58,14 @@ export default function RootLayout() {
     // Initialize RevenueCat
     Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
 
-    const iosApiKey = 'test_MlPRLBjvIJNMYolhzdIiSRrtnmz';
+    //const iosApiKey = 'test_MlPRLBjvIJNMYolhzdIiSRrtnmz';
 
 
-    //const iosApiKey = 'appl_eAvndgscosrWeRfQhjEnNEIROOX'; //need change
-    const androidApiKey = 'test_MlPRLBjvIJNMYolhzdIiSRrtnmz';
+    const iosApiKey = 'appl_eAvndgscosrWeRfQhjEnNEIROOX'; //need change
+
+    //const androidApiKey = 'test_MlPRLBjvIJNMYolhzdIiSRrtnmz';
+
+    const androidApiKey = 'goog_wklPZQCeqRvPgHDvmEZWOxByWEz';
 
     if (Platform.OS === 'ios') {
       Purchases.configure({ apiKey: iosApiKey });
@@ -77,22 +81,24 @@ export default function RootLayout() {
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
-      <AuthProvider>
-        <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-          <Drawer
-            drawerContent={(props) => <CustomDrawerContent {...props} />}
-            screenOptions={{
-              headerShown: false,
-              drawerType: 'front',
-            }}
-          >
-            <Drawer.Screen name="(tabs)" options={{ headerShown: false, drawerLabel: 'Home' }} />
-            <Drawer.Screen name="feed" options={{ headerShown: false, drawerLabel: 'Feed' }} />
-            <Drawer.Screen name="profile" options={{ headerShown: false, drawerLabel: 'Profile' }} />
-          </Drawer>
-          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} translucent backgroundColor="transparent" />
-        </ThemeProvider>
-      </AuthProvider>
+      <SafeAreaProvider>
+        <AuthProvider>
+          <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+            <Drawer
+              drawerContent={(props) => <CustomDrawerContent {...props} />}
+              screenOptions={{
+                headerShown: false,
+                drawerType: 'front',
+              }}
+            >
+              <Drawer.Screen name="(tabs)" options={{ headerShown: false, drawerLabel: 'Home' }} />
+              <Drawer.Screen name="feed" options={{ headerShown: false, drawerLabel: 'Feed' }} />
+              <Drawer.Screen name="profile" options={{ headerShown: false, drawerLabel: 'Profile' }} />
+            </Drawer>
+            <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} translucent backgroundColor="transparent" />
+          </ThemeProvider>
+        </AuthProvider>
+      </SafeAreaProvider>
     </GestureHandlerRootView>
   );
 }

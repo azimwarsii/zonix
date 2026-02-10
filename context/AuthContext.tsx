@@ -28,7 +28,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     useEffect(() => {
         // Configure Google Sign In
         GoogleSignin.configure({
-            webClientId: '1089756321378-48a5istasmq0hpakbu5nqo62o7k1lc9e.apps.googleusercontent.com',
+            webClientId: '1089756321378-7agiofc50lhhc8qnt2b9k8p71lhj288g.apps.googleusercontent.com',
             offlineAccess: true,
             forceCodeForRefreshToken: true,
         });

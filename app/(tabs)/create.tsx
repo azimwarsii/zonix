@@ -25,7 +25,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useRouter } from 'expo-router';
 
@@ -84,6 +84,7 @@ export default function CreateScreen() {
     const { user, userData, presentPaywall } = useAuth();
     const colorScheme = useColorScheme();
     const themeColors = Colors[colorScheme ?? 'light'];
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         const keyboardDidShowListener = Keyboard.addListener(
@@ -214,17 +215,35 @@ export default function CreateScreen() {
             return;
         }
 
-        // Premium Check
+        // Credits/Premium Check
         if (userData?.planType !== 'Premium') {
-            Alert.alert(
-                'Premium Feature',
-                'Forging a specialized AI Coach is an exclusive Premium feature.',
-                [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Upgrade to Create', onPress: () => presentPaywall() }
-                ]
-            );
-            return;
+            const credits = userData?.credits || 0;
+            if (credits < 5) {
+                Alert.alert(
+                    'Insufficient Coins',
+                    'Forging an AI Coach costs 5 coins. Upgrade to Premium for UNLIMITED forging!',
+                    [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Upgrade', onPress: () => presentPaywall() }
+                    ]
+                );
+                return;
+            }
+
+            // Simple Confirmation
+            const confirmForge = () => new Promise((resolve) => {
+                Alert.alert(
+                    'Forge AI Coach',
+                    'Forging this coach will cost 5 coins. Continue?',
+                    [
+                        { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
+                        { text: 'Forge (5 Coins)', onPress: () => resolve(true) }
+                    ]
+                );
+            });
+
+            const confirmed = await confirmForge();
+            if (!confirmed) return;
         }
 
         setIsCreating(true);
@@ -426,7 +445,7 @@ export default function CreateScreen() {
             </ScrollView>
 
             {/* Bottom Button - Floating */}
-            <View style={styles.bottomContainer}>
+            <View style={[styles.bottomContainer, { bottom: Math.max(insets.bottom, 20) }]}>
                 <TouchableOpacity
                     style={[styles.createButton, { backgroundColor: themeColors.tint }, (isCreating || !name) && { opacity: 0.7 }]}
                     onPress={handleNext}
@@ -435,7 +454,9 @@ export default function CreateScreen() {
                     {isCreating ? (
                         <ActivityIndicator color={themeColors.background} />
                     ) : (
-                        <ThemedText style={[styles.createButtonText, { color: themeColors.background }]}>Create Coach</ThemedText>
+                        <ThemedText style={[styles.createButtonText, { color: themeColors.background }]}>
+                            {userData?.planType === 'Premium' ? 'Create Coach' : 'Create Coach (5 Coins)'}
+                        </ThemedText>
                     )}
                 </TouchableOpacity>
             </View>
@@ -733,7 +754,6 @@ const styles = StyleSheet.create({
     },
     bottomContainer: {
         position: 'absolute',
-        bottom: 30,
         left: 20,
         right: 20,
     },

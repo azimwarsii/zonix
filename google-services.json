@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "1089756321378",
+    "firebase_url": "https://zonix-36dc1-default-rtdb.firebaseio.com",
+    "project_id": "zonix-36dc1",
+    "storage_bucket": "zonix-36dc1.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1089756321378:android:8a7a9df4a5f59dfdbee33b",
+        "android_client_info": {
+          "package_name": "com.zonix.zonix"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1089756321378-jj8v23818bb5pg7r6bv2km4dck1i65f6.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.zonix.zonix",
+            "certificate_hash": "e585823a0c9fa9b9a542460d414efb9166b89a86"
+          }
+        },
+        {
+          "client_id": "1089756321378-7agiofc50lhhc8qnt2b9k8p71lhj288g.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCuJ-bVR3YLIF3KqxcWQaKWpzwdHtmlsio"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1089756321378-7agiofc50lhhc8qnt2b9k8p71lhj288g.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1089756321378-48a5istasmq0hpakbu5nqo62o7k1lc9e.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.zonix.zonix"
+              }
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,5 +1,6 @@
 import CharacterCard from '@/components/CharacterCard';
 import Header from '@/components/Header';
+import OnboardingOverlay from '@/components/OnboardingOverlay';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/Colors';
@@ -399,6 +400,7 @@ export default function ExploreScreen() {
   return (
     <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
+      <OnboardingOverlay />
 
 
       {/* Main List - Handles both Content and Loading/Empty states to keep Header visible */}

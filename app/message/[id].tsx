@@ -21,7 +21,7 @@ import {
     TouchableWithoutFeedback,
     View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function MessageScreen() {
     const { id, initialName, initialPortrait } = useLocalSearchParams(); // This is the coachId
@@ -43,6 +43,7 @@ export default function MessageScreen() {
 
     const colorScheme = useColorScheme();
     const themeColors = Colors[colorScheme ?? 'light'];
+    const insets = useSafeAreaInsets();
 
     useEffect(() => {
         const fetchCoach = async () => {
@@ -314,7 +315,14 @@ export default function MessageScreen() {
                 />
 
                 {/* Input Area */}
-                <View style={[styles.inputContainer, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
+                <View style={[
+                    styles.inputContainer,
+                    {
+                        backgroundColor: themeColors.background,
+                        borderTopColor: themeColors.border,
+                        paddingBottom: Math.max(insets.bottom, 12)
+                    }
+                ]}>
                     <TextInput
                         style={[styles.input, { backgroundColor: themeColors.card, color: themeColors.text, borderColor: themeColors.border }]}
                         placeholder="Type a message..."
@@ -432,7 +440,6 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
         paddingHorizontal: 16,
         paddingTop: 12,
-        paddingBottom: Platform.OS === 'ios' ? 28 : 12, // More padding for premium feel and home indicator
         borderTopWidth: 1,
     },
     input: {
