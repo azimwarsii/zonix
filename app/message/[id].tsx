@@ -125,6 +125,9 @@ export default function MessageScreen() {
                 participants: [user.uid, id],
                 coachId: id,
                 userId: user.uid,
+                coachName: coach?.name || 'Coach',
+                coachPortraitUrl: coach?.portraitUrl || '',
+                lastMessage: text,
             }, { merge: true });
 
             // 2. Add New Message

@@ -1,7 +1,6 @@
 import AuthModal from '@/components/AuthModal';
 import Header from '@/components/Header';
 import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/context/AuthContext';
@@ -80,43 +79,59 @@ export default function ChatScreen() {
                 return;
             }
 
-            const fetchChats = async () => {
-                setLoadingChats(true);
-                try {
-                    const snapshot = await firestore()
-                        .collection('conversations')
-                        .where('userId', '==', user.uid)
-                        .orderBy('lastMessageAt', 'desc')
-                        .get();
+            // Real-time listener is much faster and benefits from local cache
+            const unsubscribe = firestore()
+                .collection('conversations')
+                .where('userId', '==', user.uid)
+                .orderBy('lastMessageAt', 'desc')
+                .onSnapshot(async (snapshot) => {
+                    if (!snapshot) return;
 
-                    const chatPromises = snapshot.docs.map(async doc => {
+                    const chatData = snapshot.docs.map(doc => {
                         const data = doc.data();
-                        // Fetch coach details
-                        let coach = { name: 'Unknown Coach', portraitUrl: '' };
-                        if (data.coachId) {
-                            const coachDoc = await firestore().collection('coaches').doc(data.coachId).get();
-                            if (coachDoc.exists()) {
-                                coach = coachDoc.data() as any;
-                            }
-                        }
-
                         return {
                             id: doc.id,
                             ...data,
-                            coach
+                            // Support both denormalized and old format
+                            coach: data.coachName ? {
+                                name: data.coachName,
+                                portraitUrl: data.coachPortraitUrl
+                            } : null
                         };
                     });
 
-                    const chatsData = await Promise.all(chatPromises);
-                    setChats(chatsData);
-                } catch (error) {
-                    console.error('Error fetching chats:', error);
-                } finally {
-                    setLoadingChats(false);
-                }
-            };
+                    // For chats missing denormalized data, fetch in background without blocking UI
+                    const needsFetching = chatData.filter(c => !c.coach);
 
-            fetchChats();
+                    if (needsFetching.length === 0) {
+                        setChats(chatData);
+                        setLoadingChats(false);
+                    } else {
+                        // Initial set with what we have
+                        setChats(chatData);
+                        setLoadingChats(false);
+
+                        // Background fetch for legacy chats
+                        const updatedChats = await Promise.all(chatData.map(async (chat: any) => {
+                            if (chat.coach) return chat;
+                            try {
+                                const coachDoc = await firestore().collection('coaches').doc(chat.coachId).get();
+                                return {
+                                    ...chat,
+                                    coach: coachDoc.exists() ? coachDoc.data() : { name: 'Unknown Coach' }
+                                };
+                            } catch (e) {
+                                return { ...chat, coach: { name: 'Unknown Coach' } };
+                            }
+                        }));
+                        setChats(updatedChats);
+                    }
+                }, (error) => {
+                    console.error('Error listening to chats:', error);
+                    setLoadingChats(false);
+                });
+
+            return () => unsubscribe();
         }, [user])
     );
 
@@ -248,7 +263,7 @@ export default function ChatScreen() {
             <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
                 <Header />
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                    
+
 
                     <View style={styles.emptyStateContainer}>
                         <View style={[styles.iconCircle, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>

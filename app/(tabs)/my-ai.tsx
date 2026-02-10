@@ -35,37 +35,34 @@ export default function MyAIScreen() {
     const colorScheme = useColorScheme();
     const themeColors = Colors[colorScheme ?? 'light'];
 
-    const fetchMyCoaches = async () => {
-        if (!user) {
-            setCoaches([]);
-            setLoading(false);
-            return;
-        }
-        try {
-            setLoading(true);
-            const snapshot = await firestore()
+    useFocusEffect(
+        useCallback(() => {
+            if (!user) {
+                setCoaches([]);
+                setLoading(false);
+                return;
+            }
+
+            // Real-time listener: instant updates + offline cache support
+            const unsubscribe = firestore()
                 .collection('coaches')
                 .where('creatorId', '==', user.uid)
                 .orderBy('createdAt', 'desc')
-                .get();
+                .onSnapshot(snapshot => {
+                    if (snapshot) {
+                        const fetchedCoaches = snapshot.docs.map(doc => ({
+                            id: doc.id,
+                            ...doc.data()
+                        }));
+                        setCoaches(fetchedCoaches);
+                        setLoading(false);
+                    }
+                }, error => {
+                    console.error('Error listening to my coaches:', error);
+                    setLoading(false);
+                });
 
-            const fetchedCoaches = snapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setCoaches(fetchedCoaches);
-        } catch (error) {
-            console.error('Error fetching my coaches:', error);
-            // Don't alert on simple fetches, just log it. 
-            // Alert.alert('Error', 'Failed to load your coaches.');
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    useFocusEffect(
-        useCallback(() => {
-            fetchMyCoaches();
+            return () => unsubscribe();
         }, [user])
     );
 
