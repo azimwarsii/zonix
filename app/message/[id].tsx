@@ -340,7 +340,7 @@ export default function MessageScreen() {
                     {
                         backgroundColor: themeColors.background,
                         borderTopColor: themeColors.border,
-                        paddingBottom: isKeyboardVisible ? 12 : Math.max(insets.bottom, 12)
+                        paddingBottom: (isKeyboardVisible || Platform.OS === 'android') ? 15: Math.max(insets.bottom, 5)
                     }
                 ]}>
                     <TextInput
