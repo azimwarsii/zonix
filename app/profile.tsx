@@ -188,7 +188,7 @@ export default function ProfileScreen() {
             }]}>
                 <View style={styles.avatarContainer}>
                     <View style={[styles.avatarInner, { borderColor: themeColors.border, backgroundColor: themeColors.background, width: 80, height: 80, borderRadius: 40 }]}>
-                        <ThemedText style={[styles.avatarTextLarge, { fontSize: 36, color: themeColors.text }]}>
+                        <ThemedText style={[styles.avatarTextLarge, { fontSize: 29, color: themeColors.text }]}>
                             {(userData?.userName || 'D')[0].toUpperCase()}
                         </ThemedText>
                     </View>
@@ -245,9 +245,9 @@ export default function ProfileScreen() {
                             </View>
                         </View>
 
-                        <TouchableOpacity style={{ marginTop: 8, paddingHorizontal: 4 }} onPress={restorePurchases}>
+                        {/* <TouchableOpacity style={{ marginTop: 8, paddingHorizontal: 4 }} onPress={restorePurchases}>
                             <ThemedText style={{ color: themeColors.icon, fontSize: 14, textDecorationLine: 'underline' }}>Restore Purchases</ThemedText>
-                        </TouchableOpacity>
+                        </TouchableOpacity> */}
                     </View>
                 )}
             </View>
