@@ -315,6 +315,8 @@ const styles = StyleSheet.create({
         fontFamily: Fonts.bold,
         marginBottom: 12,
         textAlign: 'center',
+        lineHeight: 32,
+        includeFontPadding: false, // Critical for Android cropping
     },
     emptyStateDescription: {
         fontSize: 16,

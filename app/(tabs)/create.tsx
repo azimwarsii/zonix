@@ -430,7 +430,7 @@ export default function CreateScreen() {
 
                 {showAdvanced && (
                     <View style={styles.advancedContainer}>
-                        {['Primary Greeting', 'Knowledge Base', 'Who Am I?', 'Social Links'].map((item) => (
+                        {['Primary Greeting', 'Knowledge Base', 'Who Am I?'].map((item) => (
                             <TouchableOpacity
                                 key={item}
                                 style={[styles.advancedItem, { backgroundColor: themeColors.card }]}
@@ -635,6 +635,7 @@ export default function CreateScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        paddingBottom:50
     },
     scrollContent: {
         paddingHorizontal: 24,

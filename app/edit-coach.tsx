@@ -24,7 +24,7 @@ import {
     TouchableOpacity,
     View
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const EXPERTISE_OPTIONS = [
     "Business Strategy", "Life Coaching", "Software Engineering",
@@ -47,6 +47,7 @@ export default function EditCoachScreen() {
     const { user } = useAuth();
     const colorScheme = useColorScheme();
     const themeColors = Colors[colorScheme ?? 'light'];
+    const insets = useSafeAreaInsets();
 
     const [loadingData, setLoadingData] = useState(true);
     const [name, setName] = useState('');
@@ -380,7 +381,7 @@ export default function EditCoachScreen() {
 
                 {showAdvanced && (
                     <View style={styles.advancedContainer}>
-                        {['Primary Greeting', 'Knowledge Base', 'Who Am I?', 'Social Links'].map((item) => (
+                        {['Primary Greeting', 'Knowledge Base', 'Who Am I?'].map((item) => (
                             <TouchableOpacity
                                 key={item}
                                 style={[styles.advancedItem, { backgroundColor: themeColors.card }]}
@@ -395,7 +396,7 @@ export default function EditCoachScreen() {
             </ScrollView>
 
             {/* Bottom Button - Floating */}
-            <View style={styles.bottomContainer}>
+            <View style={[styles.bottomContainer, { bottom: insets.bottom + 16 }]}>
                 <TouchableOpacity
                     style={[styles.createButton, { backgroundColor: themeColors.tint }, (isUpdating || !name) && { opacity: 0.7 }]}
                     onPress={handleUpdateCoach}
@@ -605,6 +606,7 @@ export default function EditCoachScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
+        paddingBottom:50
     },
     centered: {
         flex: 1,

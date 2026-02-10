@@ -12,6 +12,7 @@ import {
     ActivityIndicator,
     Alert,
     FlatList,
+    Keyboard,
     KeyboardAvoidingView,
     Modal,
     Platform,
@@ -44,6 +45,22 @@ export default function MessageScreen() {
     const colorScheme = useColorScheme();
     const themeColors = Colors[colorScheme ?? 'light'];
     const insets = useSafeAreaInsets();
+    const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+    useEffect(() => {
+        const showSub = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+            () => setIsKeyboardVisible(true)
+        );
+        const hideSub = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+            () => setIsKeyboardVisible(false)
+        );
+        return () => {
+            showSub.remove();
+            hideSub.remove();
+        };
+    }, []);
 
     useEffect(() => {
         const fetchCoach = async () => {
@@ -266,9 +283,9 @@ export default function MessageScreen() {
             </Modal>
             {/* Content wrapped to avoid keyboard */}
             <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
                 style={{ flex: 1 }}
-                keyboardVerticalOffset={0}
+                keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 0}
             >
                 {/* Header */}
                 <View style={[styles.header, { borderBottomColor: themeColors.border, backgroundColor: themeColors.background }]}>
@@ -323,7 +340,7 @@ export default function MessageScreen() {
                     {
                         backgroundColor: themeColors.background,
                         borderTopColor: themeColors.border,
-                        paddingBottom: Math.max(insets.bottom, 12)
+                        paddingBottom: isKeyboardVisible ? 12 : Math.max(insets.bottom, 12)
                     }
                 ]}>
                     <TextInput
