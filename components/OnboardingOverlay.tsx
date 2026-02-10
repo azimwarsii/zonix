@@ -7,6 +7,7 @@ import React, { useEffect, useState } from 'react';
 import {
     Dimensions,
     Modal,
+    Platform,
     StyleSheet,
     TouchableOpacity,
     View,
@@ -24,7 +25,7 @@ import { ThemedText } from './themed-text';
 
 const { width, height } = Dimensions.get('window');
 
-const ONBOARDING_KEY = 'has_seen_onboarding_v2';
+const ONBOARDING_KEY = 'has_seen_onboarding_v5';
 
 interface Step {
     title: string;
@@ -35,32 +36,32 @@ interface Step {
 
 const STEPS: Step[] = [
     {
-        title: "Discover AI Coaches",
-        description: "Explore a world of specialized AI coaches ready to help you grow.",
+        title: "EXPLORE",
+        description: "Discover a curated network of specialized AI minds designed for growth.",
         targetTab: 0,
         icon: "compass"
     },
     {
-        title: "Your Conversations",
-        description: "Access your chat history and continue growing with your AI.",
+        title: "CONNECT",
+        description: "Engage in deep, secure conversations with your personal AI workspace.",
         targetTab: 1,
         icon: "chatbubble"
     },
     {
-        title: "Forge Your Own",
-        description: "Create an AI Coach tailored to your specific needs.",
+        title: "FORGE",
+        description: "Build bespoke intelligence. Create custom coaches tailored to your unique goals.",
         targetTab: 2,
         icon: "add-circle"
     },
     {
-        title: "Leaderboard",
-        description: "Track the top coaches and see community rankings.",
+        title: "ASCEND",
+        description: "Observe the global community and track the impact of top-tier AI creations.",
         targetTab: 3,
         icon: "trophy"
     },
     {
-        title: "Manage Creations",
-        description: "Fine-tune and update the coaches you've forged.",
+        title: "ORCHESTRATE",
+        description: "Manage, refine, and evolve your workforce of digital assistants.",
         targetTab: 4,
         icon: "sparkles"
     }
@@ -121,7 +122,7 @@ export default function OnboardingOverlay() {
     const centerX = (step.targetTab * tabWidth) + (tabWidth / 2);
 
     // Position of the icon in the tab bar (approximate)
-    const tabIconY = height - (insets.bottom > 0 ? insets.bottom + 30 : 38);
+    const tabIconY = height - (Platform.OS === 'android' ? -10 : (insets.bottom > 0 ? insets.bottom + 30 : 38));
     const tabAreaHeight = 60 + insets.bottom;
 
     return (
@@ -132,7 +133,7 @@ export default function OnboardingOverlay() {
                     style={[styles.skipButton, { top: insets.top + 10 }]}
                     onPress={handleSkip}
                 >
-                    <ThemedText style={[styles.skipText, { color: themeColors.icon }]}>Skip</ThemedText>
+                    <ThemedText style={[styles.skipText, { color: themeColors.icon }]}>SKIP</ThemedText>
                 </TouchableOpacity>
 
                 {/* Card Container - Minimalist */}
@@ -152,14 +153,18 @@ export default function OnboardingOverlay() {
                                     key={i}
                                     style={[
                                         styles.dot,
-                                        { backgroundColor: i === currentStep ? themeColors.text : themeColors.border }
+                                        {
+                                            backgroundColor: i === currentStep ? themeColors.text : themeColors.border,
+                                            width: i === currentStep ? 12 : 4,
+                                            opacity: i === currentStep ? 1 : 0.3
+                                        }
                                     ]}
                                 />
                             ))}
                         </View>
                         <TouchableOpacity style={[styles.nextButton, { backgroundColor: themeColors.text }]} onPress={handleNext}>
                             <ThemedText style={[styles.nextText, { color: themeColors.background }]}>
-                                {currentStep === STEPS.length - 1 ? "Finish" : "Continue"}
+                                {currentStep === STEPS.length - 1 ? "FINISH" : "NEXT"}
                             </ThemedText>
                         </TouchableOpacity>
                     </View>
@@ -205,34 +210,35 @@ const styles = StyleSheet.create({
         padding: 10,
     },
     skipText: {
-        fontFamily: Fonts.body,
-        fontSize: 14,
-        letterSpacing: 0.5,
+        fontFamily: Fonts.bold,
+        fontSize: 12,
+        letterSpacing: 2,
     },
     card: {
-        width: width * 0.8,
-        borderRadius: 20,
-        padding: 24,
+        width: width * 0.85,
+        borderRadius: 24,
+        padding: 32,
         borderWidth: 1,
+        alignItems: 'flex-start', // Left aligned for better legibility
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 10 },
-        shadowOpacity: 0.5,
-        shadowRadius: 20,
-        elevation: 10,
-        alignItems: 'center',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.1,
+        shadowRadius: 12,
+        elevation: 5,
     },
     title: {
-        fontSize: 20,
+        fontSize: 14,
         fontFamily: Fonts.bold,
-        marginBottom: 10,
-        textAlign: 'center',
+        letterSpacing: 4, // Ultra minimalist wide tracking
+        marginBottom: 16,
+        opacity: 0.8,
     },
     description: {
-        fontSize: 14,
+        fontSize: 18, // Slightly larger for better readability
         fontFamily: Fonts.body,
-        textAlign: 'center',
-        lineHeight: 20,
-        marginBottom: 24,
+        lineHeight: 26,
+        letterSpacing: -0.2,
+        marginBottom: 32,
     },
     footer: {
         width: '100%',
@@ -242,28 +248,28 @@ const styles = StyleSheet.create({
     },
     dots: {
         flexDirection: 'row',
-        gap: 6,
+        gap: 4,
+        alignItems: 'center',
     },
     dot: {
-        width: 4,
         height: 4,
         borderRadius: 2,
     },
     nextButton: {
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 30,
     },
     nextText: {
         fontFamily: Fonts.bold,
-        fontSize: 14,
+        fontSize: 12,
+        letterSpacing: 1,
     },
     spotlight: {
         position: 'absolute',
         width: 60,
         height: 60,
         borderRadius: 30,
-        backgroundColor: 'rgba(255,255,255,0.1)', // Subtle highlight behind the cloned icon
     },
     iconClone: {
         position: 'absolute',
