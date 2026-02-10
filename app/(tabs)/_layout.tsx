@@ -1,3 +1,4 @@
+import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import { Tabs } from 'expo-router';
@@ -9,15 +10,17 @@ import { Fonts } from '@/constants/Fonts';
 export default function TabLayout() {
   const colorScheme = useColorScheme();
 
+  const colors = Colors[colorScheme ?? 'light'];
+
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#fff', // White for active
-        tabBarInactiveTintColor: '#888', // Gray for inactive
+        tabBarActiveTintColor: colors.tabIconSelected,
+        tabBarInactiveTintColor: colors.tabIconDefault,
         headerShown: false,
         tabBarStyle: {
-          backgroundColor: '#000', // Black background
-          borderTopColor: '#222',
+          backgroundColor: colors.background,
+          borderTopColor: colors.border,
           height: Platform.OS === 'ios' ? 88 : 60,
           paddingBottom: Platform.OS === 'ios' ? 28 : 8,
           paddingTop: 8,
@@ -25,7 +28,7 @@ export default function TabLayout() {
         tabBarLabelStyle: {
           fontSize: 10,
           fontFamily: Fonts.body,
-          // fontWeight removed to let font handle weight
+          fontWeight: '500',
         },
       }}>
       <Tabs.Screen
@@ -52,8 +55,8 @@ export default function TabLayout() {
       <Tabs.Screen
         name="community"
         options={{
-          title: 'Community',
-          tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? "people" : "people-outline"} size={24} color={color} />,
+          title: 'Ranks',
+          tabBarIcon: ({ color, focused }) => <Ionicons name={focused ? "trophy" : "trophy-outline"} size={26} color={color} />,
         }}
       />
       <Tabs.Screen

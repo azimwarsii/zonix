@@ -1,28 +1,26 @@
 import AuthModal from '@/components/AuthModal';
 import Header from '@/components/Header';
 import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/context/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import firestore from '@react-native-firebase/firestore';
 import functions from '@react-native-firebase/functions';
 import storage from '@react-native-firebase/storage';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect, useRef, useState } from 'react';
-import * as RN from 'react-native';
 import {
+    ActivityIndicator,
     Alert,
     Dimensions,
     FlatList,
     Keyboard,
-    KeyboardAvoidingView,
     Modal,
-    Platform,
     ScrollView,
     StyleSheet,
-    Text,
     TextInput,
     TouchableOpacity,
     View
@@ -83,7 +81,9 @@ export default function CreateScreen() {
     };
 
     const router = useRouter();
-    const { user, userData } = useAuth();
+    const { user, userData, presentPaywall } = useAuth();
+    const colorScheme = useColorScheme();
+    const themeColors = Colors[colorScheme ?? 'light'];
 
     useEffect(() => {
         const keyboardDidShowListener = Keyboard.addListener(
@@ -214,6 +214,19 @@ export default function CreateScreen() {
             return;
         }
 
+        // Premium Check
+        if (userData?.planType !== 'Premium') {
+            Alert.alert(
+                'Premium Feature',
+                'Forging a specialized AI Coach is an exclusive Premium feature.',
+                [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Upgrade to Create', onPress: () => presentPaywall() }
+                ]
+            );
+            return;
+        }
+
         setIsCreating(true);
         try {
             console.log('Preparing coach data and uploading assets...');
@@ -289,12 +302,12 @@ export default function CreateScreen() {
             if (result.data.success) {
                 Alert.alert(
                     'Coach Created!',
-                    `Your coach "${name}" has been forged. 5 credits have been deducted.`,
+                    `Your coach "${name}" has been forged successfully.`,
                     [{
                         text: 'Great!',
                         onPress: () => {
                             resetForm();
-                            router.push('/(tabs)');
+                            router.push({ pathname: '/coach/[id]', params: { id: coachId } });
                         }
                     }]
                 );
@@ -313,1070 +326,487 @@ export default function CreateScreen() {
 
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
             <Header />
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Title */}
-                <View style={styles.headerTextContainer}>
-                    <ThemedText style={styles.mainTitle}>Forge Your AI Coach</ThemedText>
-                    <ThemedText style={styles.descriptionText}>
-                        Evolve a <Text style={{ color: '#aa48b7', fontFamily: Fonts.bold }}>Digital Twin</Text> to mirror your own wisdom and expertise.
-                    </ThemedText>
-                </View>
 
-
-
-                <View style={styles.imageUploadSection}>
-
-                    <TouchableOpacity
-                        style={[
-                            styles.imagePlaceholder,
-                            validationErrors.includes('portrait') && styles.errorBorder
-                        ]}
-                        onPress={handlePickImage}
-                    >
-                        {portraitImage ? (
-                            <Image
-                                source={{ uri: portraitImage }}
-                                style={styles.capturedImage}
-                                contentFit="cover"
-                            />
-                        ) : (
-                            <>
-                                <Ionicons name="image-outline" size={40} color={validationErrors.includes('portrait') ? '#ff4444' : "#aa48b7"} />
-                                <ThemedText style={[styles.imagePlaceholderText, validationErrors.includes('portrait') && { color: '#ff4444' }]}>Add portrait photo</ThemedText>
-                            </>
-                        )}
-                    </TouchableOpacity>
-                    {/* <ThemedText style={styles.sectionLabel}>Portrait Selection</ThemedText> */}
-                </View>
-
-                <View style={styles.inputSection}>
-                    <ThemedText style={[styles.sectionLabel, validationErrors.includes('name') && { color: '#ff4444' }]}>Coach Name</ThemedText>
-                    <View style={[styles.inputWrapper, validationErrors.includes('name') && styles.errorBorder]}>
-                        <TextInput
-                            style={styles.textInput}
-                            placeholder="Enter your full name"
-                            placeholderTextColor="#666"
-                            value={name}
-                            onChangeText={(text) => {
-                                setName(text);
-                                if (text.trim()) setValidationErrors(prev => prev.filter(err => err !== 'name'));
-                            }}
-                        />
+                {/* Portrait - Minimal Circle */}
+                <TouchableOpacity onPress={handlePickImage} style={styles.portraitContainer}>
+                    {portraitImage ? (
+                        <Image source={{ uri: portraitImage }} style={[styles.portraitImage, { borderColor: validationErrors.includes('portrait') ? '#ef4444' : themeColors.border }]} />
+                    ) : (
+                        <View style={[styles.portraitPlaceholder, { backgroundColor: themeColors.card, borderColor: validationErrors.includes('portrait') ? '#ef4444' : themeColors.border }]}>
+                            <Ionicons name="camera-outline" size={32} color={validationErrors.includes('portrait') ? '#ef4444' : themeColors.icon} />
+                        </View>
+                    )}
+                    <View style={[styles.editBadge, { backgroundColor: themeColors.tint }]}>
+                        <Ionicons name="pencil" size={12} color={themeColors.background} />
                     </View>
+                </TouchableOpacity>
+
+                {/* Name Input - Clean Underline */}
+                <View style={styles.inputGroup}>
+                    <TextInput
+                        style={[styles.minimalInput, { color: themeColors.text, borderBottomColor: validationErrors.includes('name') ? '#ef4444' : themeColors.border }]}
+                        placeholder="Coach Name"
+                        placeholderTextColor={validationErrors.includes('name') ? '#ef4444' : themeColors.icon}
+                        value={name}
+                        onChangeText={(text) => {
+                            setName(text);
+                            if (text.trim()) setValidationErrors(prev => prev.filter(err => err !== 'name'));
+                        }}
+                    />
                 </View>
 
-                {/* Expertise Dropdown */}
-                <View style={styles.inputSection}>
-                    <ThemedText style={[styles.sectionLabel, validationErrors.includes('expertise') && { color: '#ff4444' }]}>Specialization</ThemedText>
-                    <TouchableOpacity
-                        style={[styles.inputWrapper, validationErrors.includes('expertise') && styles.errorBorder]}
-                        onPress={() => setShowExpertisePicker(true)}
-                    >
-                        <ThemedText style={[styles.textInput, !expertise && { color: '#666' }]}>
-                            {expertise || "Select Expertise"}
-                        </ThemedText>
-                        <Ionicons name="chevron-down" size={20} color={validationErrors.includes('expertise') ? '#ff4444' : "#aa48b7"} />
-                    </TouchableOpacity>
-                </View>
-
-                {/* Personality Details Grid */}
-                <View style={styles.gridSection}>
-                    <ThemedText style={styles.sectionLabel}>Core Essence</ThemedText>
-                    <ThemedText style={styles.sectionSubLabel}>Select philosophy for each trait</ThemedText>
-
-                    <View style={styles.grid}>
-                        <View style={styles.gridRow}>
-                            <PersonalityCard
-                                label="Talk Style"
-                                value={essences["Talk Style"]}
-                                icon="chatbubbles-outline"
-                                error={validationErrors.includes("Talk Style")}
-                                onPress={() => setActiveEssencePicker("Talk Style")}
-                            />
-                            <PersonalityCard
-                                label="Temperament"
-                                value={essences["Temperament"]}
-                                icon="shield-half-outline"
-                                error={validationErrors.includes("Temperament")}
-                                onPress={() => setActiveEssencePicker("Temperament")}
-                            />
-                        </View>
-                        <View style={styles.gridRow}>
-                            <PersonalityCard
-                                label="Focus Area"
-                                value={essences["Focus Area"]}
-                                icon="trending-up-outline"
-                                error={validationErrors.includes("Focus Area")}
-                                onPress={() => setActiveEssencePicker("Focus Area")}
-                            />
-                            <PersonalityCard
-                                label="Approach"
-                                value={essences["Approach"]}
-                                icon="construct-outline"
-                                error={validationErrors.includes("Approach")}
-                                onPress={() => setActiveEssencePicker("Approach")}
-                            />
-                        </View>
-                        <View style={styles.gridRow}>
-                            <PersonalityCard
-                                label="Insight Level"
-                                value={essences["Insight Level"]}
-                                icon="eye-outline"
-                                error={validationErrors.includes("Insight Level")}
-                                onPress={() => setActiveEssencePicker("Insight Level")}
-                            />
-                            <PersonalityCard
-                                label="Presence"
-                                value={essences["Presence"]}
-                                icon="ribbon-outline"
-                                error={validationErrors.includes("Presence")}
-                                onPress={() => setActiveEssencePicker("Presence")}
-                            />
-                        </View>
-                    </View>
-                </View>
-
-                {/* Advanced Details Accordion */}
+                {/* Specialization - Clean Selector */}
                 <TouchableOpacity
-                    style={styles.accordionHeader}
+                    style={[styles.inputGroup, { borderBottomWidth: 1, borderBottomColor: validationErrors.includes('expertise') ? '#ef4444' : themeColors.border }]}
+                    onPress={() => setShowExpertisePicker(true)}
+                >
+                    <ThemedText style={[styles.selectorText, { color: expertise ? themeColors.text : (validationErrors.includes('expertise') ? '#ef4444' : themeColors.icon) }]}>
+                        {expertise || "Select Specialization"}
+                    </ThemedText>
+                    <Ionicons name="chevron-down" size={20} color={validationErrors.includes('expertise') ? '#ef4444' : themeColors.icon} />
+                </TouchableOpacity>
+
+                {/* Essence Grid - Minimal Icons */}
+                <View style={styles.sectionContainer}>
+                    <ThemedText style={[styles.sectionTitle, { color: themeColors.text }]}>Core Essence</ThemedText>
+                    <View style={styles.grid}>
+                        {Object.entries(essences).map(([key, value]) => (
+                            <TouchableOpacity
+                                key={key}
+                                style={[
+                                    styles.gridItem,
+                                    {
+                                        backgroundColor: themeColors.card,
+                                        borderColor: validationErrors.includes(key) ? '#ef4444' : (value ? themeColors.tint : 'transparent'),
+                                        borderWidth: (validationErrors.includes(key) || value) ? 1 : 0
+                                    }
+                                ]}
+                                onPress={() => {
+                                    setActiveEssencePicker(key);
+                                    if (validationErrors.includes(key)) setValidationErrors(prev => prev.filter(err => err !== key));
+                                }}
+                            >
+                                <ThemedText style={[styles.gridLabel, { color: validationErrors.includes(key) ? '#ef4444' : themeColors.icon }]}>{key}</ThemedText>
+                                <ThemedText style={[styles.gridValue, { color: value ? themeColors.text : (validationErrors.includes(key) ? '#ef4444' : themeColors.icon) }]}>
+                                    {value || "Select"}
+                                </ThemedText>
+                            </TouchableOpacity>
+                        ))}
+                    </View>
+                </View>
+
+                {/* Advanced Toggle - Minimal Text */}
+                <TouchableOpacity
+                    style={styles.advancedToggle}
                     onPress={() => setShowAdvanced(!showAdvanced)}
                 >
-                    <ThemedText style={styles.accordionTitle}>Advanced Details</ThemedText>
-                    <Ionicons name={showAdvanced ? "chevron-down" : "chevron-up"} size={20} color="#aa48b7" />
+                    <ThemedText style={[styles.advancedToggleText, { color: themeColors.tint }]}>{showAdvanced ? "Hide Advanced" : "Advanced Details"}</ThemedText>
                 </TouchableOpacity>
 
                 {showAdvanced && (
-                    <View>
-                        <TouchableOpacity
-                            style={styles.actionItem}
-                            onPress={() => setActiveAdvancedModal('Primary Greeting')}
-                        >
-                            <ThemedText style={styles.actionLabel}>Primary Greeting</ThemedText>
-                            <Ionicons name="pencil-sharp" size={18} color="#aa48b7" />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.actionItem}
-                            onPress={() => setActiveAdvancedModal('Knowledge Base')}
-                        >
-                            <ThemedText style={styles.actionLabel}>Knowledge Base</ThemedText>
-                            <Ionicons name="pencil-sharp" size={18} color="#aa48b7" />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.actionItem}
-                            onPress={() => setActiveAdvancedModal('Who Am I?')}
-                        >
-                            <ThemedText style={styles.actionLabel}>Who Am I ?</ThemedText>
-                            <Ionicons name="pencil-sharp" size={18} color="#aa48b7" />
-                        </TouchableOpacity>
-                        <TouchableOpacity
-                            style={styles.actionItem}
-                            onPress={() => setActiveAdvancedModal('Social Links')}
-                        >
-                            <ThemedText style={styles.actionLabel}>Social Links</ThemedText>
-                            <Ionicons name="share-social-outline" size={18} color="#aa48b7" />
-                        </TouchableOpacity>
+                    <View style={styles.advancedContainer}>
+                        {['Primary Greeting', 'Knowledge Base', 'Who Am I?', 'Social Links'].map((item) => (
+                            <TouchableOpacity
+                                key={item}
+                                style={[styles.advancedItem, { backgroundColor: themeColors.card }]}
+                                onPress={() => setActiveAdvancedModal(item)}
+                            >
+                                <ThemedText style={[styles.advancedItemText, { color: themeColors.text }]}>{item}</ThemedText>
+                                <Ionicons name="chevron-forward" size={16} color={themeColors.icon} />
+                            </TouchableOpacity>
+                        ))}
                     </View>
                 )}
             </ScrollView>
 
-            {/* Bottom Navigation */}
-            <View style={styles.bottomBar}>
+            {/* Bottom Button - Floating */}
+            <View style={styles.bottomContainer}>
                 <TouchableOpacity
-                    style={[styles.nextButton, (isCreating || !name) && { opacity: 0.7 }]}
+                    style={[styles.createButton, { backgroundColor: themeColors.tint }, (isCreating || !name) && { opacity: 0.7 }]}
                     onPress={handleNext}
                     disabled={isCreating}
                 >
-                    <LinearGradient
-                        colors={['#aa48b7', '#4a148c']}
-                        start={{ x: 0, y: 0 }}
-                        end={{ x: 1, y: 1 }}
-                        style={styles.nextGradient}
-                    >
-                        <View style={{ alignItems: 'center' }}>
-                            <ThemedText style={styles.nextText}>
-                                {isCreating ? 'FORGING...' : 'FORGE AGENT'}
-                            </ThemedText>
-                            {!isCreating && (
-                                <Text style={styles.creditDeductionText}>-5 Coins</Text>
-                            )}
-                        </View>
-                        {isCreating && (
-                            <RN.ActivityIndicator size="small" color="#fff" style={{ marginLeft: 12 }} />
-                        )}
-                        {!isCreating && <Ionicons name="sparkles" size={20} color="#fff" style={{ marginLeft: 8 }} />}
-                    </LinearGradient>
+                    {isCreating ? (
+                        <ActivityIndicator color={themeColors.background} />
+                    ) : (
+                        <ThemedText style={[styles.createButtonText, { color: themeColors.background }]}>Create Coach</ThemedText>
+                    )}
                 </TouchableOpacity>
             </View>
 
+            {/* Modals - Simplified (Keeping same logic, just wrapping with Theme) */}
             {/* Expertise Picker Modal */}
             <Modal visible={showExpertisePicker} transparent animationType="slide">
-                <View style={styles.modalContainer}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <ThemedText style={styles.modalTitle}>Choose Specialization</ThemedText>
-                            <TouchableOpacity onPress={() => setShowExpertisePicker(false)}>
-                                <Ionicons name="close" size={24} color="#fff" />
-                            </TouchableOpacity>
-                        </View>
+                <TouchableOpacity style={styles.modalOverlay} onPress={() => setShowExpertisePicker(false)} activeOpacity={1}>
+                    <View style={[styles.modalContent, { backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1 }]}>
+                        <View style={styles.modalHandle} />
+                        <ThemedText style={[styles.modalTitle, { color: themeColors.text }]}>Select Specialization</ThemedText>
                         <FlatList
                             data={EXPERTISE_OPTIONS}
+                            contentContainerStyle={{ paddingBottom: 20 }}
                             renderItem={({ item }) => (
                                 <TouchableOpacity
-                                    style={styles.pickerItem}
+                                    style={[styles.modalItem, { borderBottomColor: themeColors.border }]}
                                     onPress={() => {
                                         setExpertise(item);
-                                        setValidationErrors(prev => prev.filter(err => err !== 'expertise'));
                                         setShowExpertisePicker(false);
                                     }}
                                 >
-                                    <ThemedText style={[styles.pickerItemText, item === expertise && { color: '#aa48b7' }]}>
-                                        {item}
-                                    </ThemedText>
-                                    {item === expertise && <Ionicons name="checkmark" size={20} color="#aa48b7" />}
+                                    <ThemedText style={[styles.modalItemText, { color: themeColors.text }]}>{item}</ThemedText>
                                 </TouchableOpacity>
                             )}
-                            keyExtractor={item => item}
+                            keyExtractor={i => i}
                         />
                     </View>
-                </View>
+                </TouchableOpacity>
             </Modal>
 
             {/* Essence Picker Modal */}
             <Modal visible={!!activeEssencePicker} transparent animationType="slide">
-                <View style={styles.modalContainer}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <ThemedText style={styles.modalTitle}>{activeEssencePicker}</ThemedText>
-                            <TouchableOpacity onPress={() => setActiveEssencePicker(null)}>
-                                <Ionicons name="close" size={24} color="#fff" />
-                            </TouchableOpacity>
-                        </View>
+                <TouchableOpacity style={styles.modalOverlay} onPress={() => setActiveEssencePicker(null)} activeOpacity={1}>
+                    <View style={[styles.modalContent, { backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1 }]}>
+                        <View style={styles.modalHandle} />
+                        <ThemedText style={[styles.modalTitle, { color: themeColors.text }]}>{activeEssencePicker}</ThemedText>
                         {activeEssencePicker && (
                             <FlatList
                                 data={ESSENCE_OPTIONS[activeEssencePicker as keyof typeof ESSENCE_OPTIONS]}
+                                contentContainerStyle={{ paddingBottom: 20 }}
                                 renderItem={({ item }) => (
                                     <TouchableOpacity
-                                        style={styles.pickerItem}
+                                        style={[styles.modalItem, { borderBottomColor: themeColors.border }]}
                                         onPress={() => handleEssenceSelect(activeEssencePicker!, item)}
                                     >
-                                        <ThemedText style={[styles.pickerItemText, item === (essences as any)[activeEssencePicker!] && { color: '#aa48b7' }]}>
-                                            {item}
-                                        </ThemedText>
-                                        {item === (essences as any)[activeEssencePicker!] && <Ionicons name="checkmark" size={20} color="#aa48b7" />}
+                                        <ThemedText style={[styles.modalItemText, { color: themeColors.text }]}>{item}</ThemedText>
                                     </TouchableOpacity>
                                 )}
-                                keyExtractor={item => item}
+                                keyExtractor={i => i}
                             />
                         )}
                     </View>
-                </View>
+                </TouchableOpacity>
             </Modal>
-            {/* Advanced Details Modal */}
+
+            {/* Advanced Modal - Keeping simplified for now, as user can just close it */}
             <Modal visible={!!activeAdvancedModal} transparent animationType="slide">
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={{ flex: 1 }}
-                >
-                    <View style={styles.modalContainer}>
-                        <View style={[
-                            styles.modalContent,
-                            { height: '90%', borderTopLeftRadius: 20, borderTopRightRadius: 20 }
-                        ]}>
-                            <View style={styles.modalHeader}>
-                                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                                    <ThemedText style={styles.modalTitle}>{activeAdvancedModal}</ThemedText>
-                                    {isSyncing ? (
-                                        <RN.ActivityIndicator size="small" color="#aa48b7" />
-                                    ) : (
-                                        <View style={styles.savedBadge}>
-                                            <Ionicons name="checkmark-circle" size={14} color="#34A853" />
-                                            <Text style={styles.savedText}>Saved</Text>
-                                        </View>
-                                    )}
-                                </View>
-                                <TouchableOpacity onPress={() => setActiveAdvancedModal(null)}>
-                                    <View style={styles.closeButtonContainer}>
-                                        <Ionicons name="close" size={24} color="#fff" />
-                                    </View>
-                                </TouchableOpacity>
-                            </View>
-
-                            <ScrollView showsVerticalScrollIndicator={false} bounces={false}>
-                                {activeAdvancedModal === 'Primary Greeting' && (
-                                    <View style={styles.modalSection}>
-                                        <ThemedText style={styles.modalSectionLabel}>Greeting Text</ThemedText>
-                                        <TextInput
-                                            style={styles.modalTextArea}
-                                            placeholder="Enter the first thing your coach says..."
-                                            placeholderTextColor="#444"
-                                            multiline
-                                            value={primaryGreeting}
-                                            onChangeText={(txt) => {
-                                                setPrimaryGreeting(txt);
-                                                handleAutoSave();
-                                            }}
-                                        />
-                                        <View style={styles.infoBox}>
-                                            <Ionicons name="information-circle-outline" size={20} color="#aa48b7" />
-                                            <ThemedText style={styles.infoText}>
-                                                This is the first message users see when starting a chat. Set the tone for the entire interaction.
-                                            </ThemedText>
-                                        </View>
-
-                                        <View style={{ paddingBottom: 40 }}>
-                                            <ThemedText style={styles.guideTitle}>Greeting Tips</ThemedText>
-                                            {[
-                                                "Use a signature welcome or catchphrase",
-                                                "Briefly state how you can help them",
-                                                "End with an open-ended question",
-                                                "Keep it warm and consistent with your 'Talk Style'"
-                                            ].map((item, index) => (
-                                                <View key={index} style={styles.guideItem}>
-                                                    <Text style={styles.guideBullet}>•</Text>
-                                                    <ThemedText style={styles.guideText}>{item}</ThemedText>
-                                                </View>
-                                            ))}
-                                        </View>
-                                    </View>
-                                )}
-
-                                {activeAdvancedModal === 'Knowledge Base' && (
-                                    <>
-                                        <View style={styles.modalSection}>
-                                            <ThemedText style={styles.modalSectionLabel}>Text Records</ThemedText>
-                                            <TextInput
-                                                style={styles.modalTextArea}
-                                                placeholder="Paste or write key facts, rules, or data..."
-                                                placeholderTextColor="#444"
-                                                multiline
-                                                value={knowledgeBaseText}
-                                                onChangeText={(txt) => {
-                                                    setKnowledgeBaseText(txt);
-                                                    handleAutoSave();
-                                                }}
-                                            />
-                                        </View>
-                                        <View style={styles.infoBox}>
-                                            <Ionicons name="information-circle-outline" size={20} color="#aa48b7" />
-                                            <ThemedText style={styles.infoText}>
-                                                Paste key facts, rules, or data here. This information will form the core of your AI's knowledge base.
-                                            </ThemedText>
-                                        </View>
-
-                                        <View style={{ paddingBottom: 40 }}>
-                                            <ThemedText style={styles.guideTitle}>What to include?</ThemedText>
-
-                                            {[
-                                                "Personal core values and philosophy",
-                                                "Specific methodologies or frameworks you use",
-                                                "Frequently asked questions (FAQs)",
-                                                "Standard operating procedures (SOPs)",
-                                                "Writing style preferences and common phrases",
-                                                "Key life achievements or milestones"
-                                            ].map((item, index) => (
-                                                <View key={index} style={styles.guideItem}>
-                                                    <Text style={styles.guideBullet}>•</Text>
-                                                    <ThemedText style={styles.guideText}>{item}</ThemedText>
-                                                </View>
-                                            ))}
-
-                                            <TouchableOpacity
-                                                style={[styles.infoBox, { marginTop: 24 }]}
-                                                onPress={() => RN.Linking.openURL('https://docs.google.com/document/d/1oqN4wLYgDMWfUolHtkMOS1SMn1U7FccTytQ-X0Faa3g/edit?usp=sharing')}
-                                            >
-                                                <Ionicons name="document-text-outline" size={20} color="#aa48b7" />
-                                                <ThemedText style={styles.infoText}>
-                                                    See an <Text style={styles.exampleLink}>Example Knowledge Base</Text> to understand the ideal formatting.
-                                                </ThemedText>
-                                            </TouchableOpacity>
-                                        </View>
-                                    </>
-                                )}
-
-
-
-                                {activeAdvancedModal === 'Who Am I?' && (
-                                    <View style={styles.modalSection}>
-                                        <ThemedText style={styles.modalSectionLabel}>Bio & Identity</ThemedText>
-                                        <TextInput
-                                            style={styles.modalTextArea}
-                                            placeholder="Define this entity's origin story and ultimate purpose..."
-                                            placeholderTextColor="#444"
-                                            multiline
-                                            value={whoAmI}
-                                            onChangeText={(txt) => {
-                                                setWhoAmI(txt);
-                                                handleAutoSave();
-                                            }}
-                                        />
-                                        <View style={styles.infoBox}>
-                                            <Ionicons name="information-circle-outline" size={20} color="#aa48b7" />
-                                            <ThemedText style={styles.infoText}>
-                                                Define the core identity, background, and mission of your coach. This is their foundation.
-                                            </ThemedText>
-                                        </View>
-
-                                        <View style={{ paddingBottom: 40 }}>
-                                            <ThemedText style={styles.guideTitle}>What to include?</ThemedText>
-                                            {[
-                                                "Origin story and professional background",
-                                                "Ultimate mission and why they coach",
-                                                "Core beliefs and non-negotiables",
-                                                "Personal life details (if applicable)"
-                                            ].map((item, index) => (
-                                                <View key={index} style={styles.guideItem}>
-                                                    <Text style={styles.guideBullet}>•</Text>
-                                                    <ThemedText style={styles.guideText}>{item}</ThemedText>
-                                                </View>
-                                            ))}
-                                        </View>
-                                    </View>
-                                )}
-
-                                {activeAdvancedModal === 'Social Links' && (
-                                    <View style={styles.modalSection}>
-                                        <ThemedText style={styles.modalSectionLabel}>Connect Social Media</ThemedText>
-
-                                        <View style={[styles.infoBox, { marginBottom: 20 }]}>
-                                            <Ionicons name="information-circle-outline" size={20} color="#aa48b7" />
-                                            <ThemedText style={styles.infoText}>
-                                                Connect your coach's digital presence. This allows users to find you on other platforms and boosts credibility.
-                                            </ThemedText>
-                                        </View>
-
-                                        <View style={styles.socialInputRow}>
-                                            <Ionicons name="logo-instagram" size={24} color="#E4405F" style={styles.socialIcon} />
-                                            <View style={[styles.modalInputWrapper, { flex: 1 }]}>
-                                                <TextInput
-                                                    style={styles.modalInput}
-                                                    placeholder="Instagram Username"
-                                                    placeholderTextColor="#444"
-                                                    value={socialLinks.instagram}
-                                                    onChangeText={(txt) => {
-                                                        setSocialLinks(prev => ({ ...prev, instagram: txt }));
-                                                        handleAutoSave();
-                                                    }}
-                                                />
-                                            </View>
-                                        </View>
-
-                                        <View style={styles.socialInputRow}>
-                                            <Ionicons name="logo-twitter" size={24} color="#1DA1F2" style={styles.socialIcon} />
-                                            <View style={[styles.modalInputWrapper, { flex: 1 }]}>
-                                                <TextInput
-                                                    style={styles.modalInput}
-                                                    placeholder="X / Twitter Username"
-                                                    placeholderTextColor="#444"
-                                                    value={socialLinks.twitter}
-                                                    onChangeText={(txt) => {
-                                                        setSocialLinks(prev => ({ ...prev, twitter: txt }));
-                                                        handleAutoSave();
-                                                    }}
-                                                />
-                                            </View>
-                                        </View>
-
-                                        <View style={styles.socialInputRow}>
-                                            <Ionicons name="logo-linkedin" size={24} color="#0077B5" style={styles.socialIcon} />
-                                            <View style={[styles.modalInputWrapper, { flex: 1 }]}>
-                                                <TextInput
-                                                    style={styles.modalInput}
-                                                    placeholder="LinkedIn URL"
-                                                    placeholderTextColor="#444"
-                                                    value={socialLinks.linkedin}
-                                                    onChangeText={(txt) => {
-                                                        setSocialLinks(prev => ({ ...prev, linkedin: txt }));
-                                                        handleAutoSave();
-                                                    }}
-                                                />
-                                            </View>
-                                        </View>
-
-                                        <View style={styles.socialInputRow}>
-                                            <Ionicons name="logo-tiktok" size={24} color="#fff" style={styles.socialIcon} />
-                                            <View style={[styles.modalInputWrapper, { flex: 1 }]}>
-                                                <TextInput
-                                                    style={styles.modalInput}
-                                                    placeholder="TikTok Username"
-                                                    placeholderTextColor="#444"
-                                                    value={socialLinks.tiktok}
-                                                    onChangeText={(txt) => {
-                                                        setSocialLinks(prev => ({ ...prev, tiktok: txt }));
-                                                        handleAutoSave();
-                                                    }}
-                                                />
-                                            </View>
-                                        </View>
-
-                                        <View style={styles.socialInputRow}>
-                                            <Ionicons name="logo-youtube" size={24} color="#FF0000" style={styles.socialIcon} />
-                                            <View style={[styles.modalInputWrapper, { flex: 1 }]}>
-                                                <TextInput
-                                                    style={styles.modalInput}
-                                                    placeholder="YouTube Channel URL"
-                                                    placeholderTextColor="#444"
-                                                    value={socialLinks.youtube}
-                                                    onChangeText={(txt) => {
-                                                        setSocialLinks(prev => ({ ...prev, youtube: txt }));
-                                                        handleAutoSave();
-                                                    }}
-                                                />
-                                            </View>
-                                        </View>
-                                    </View>
-                                )}
-                            </ScrollView>
+                <TouchableOpacity style={styles.modalOverlay} onPress={() => setActiveAdvancedModal(null)} activeOpacity={1}>
+                    <View style={[styles.modalContent, { backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1, height: '95%', maxHeight: undefined }]}>
+                        <View style={styles.modalHandle} />
+                        <View style={[styles.modalHeader, { borderBottomColor: themeColors.border }]}>
+                            <TouchableOpacity onPress={() => setActiveAdvancedModal(null)}>
+                                <ThemedText style={{ color: themeColors.text }}>Cancel</ThemedText>
+                            </TouchableOpacity>
+                            <ThemedText style={[styles.modalHeaderTitle, { color: themeColors.text }]}>{activeAdvancedModal}</ThemedText>
+                            <TouchableOpacity onPress={() => setActiveAdvancedModal(null)}>
+                                <ThemedText style={{ color: themeColors.tint }}>Done</ThemedText>
+                            </TouchableOpacity>
                         </View>
+                        <ScrollView contentContainerStyle={{ padding: 20 }}>
+                            {/* Simplified Content Rendering based on activeAdvancedModal */}
+                            {activeAdvancedModal === 'Primary Greeting' && (
+                                <View>
+                                    <View style={{ backgroundColor: themeColors.card, borderRadius: 12, padding: 16, marginBottom: 24, flexDirection: 'row', gap: 12 }}>
+                                        <Ionicons name="chatbubbles-outline" size={24} color={themeColors.tint} />
+                                        <View style={{ flex: 1 }}>
+                                            <ThemedText style={{ color: themeColors.text, fontFamily: Fonts.bold, marginBottom: 4 }}>First Impression</ThemedText>
+                                            <ThemedText style={{ color: themeColors.icon, fontFamily: Fonts.body, lineHeight: 20 }}>
+                                                The first message your coach sends to start a conversation. Make it welcoming and relevant to their persona.
+                                            </ThemedText>
+                                        </View>
+                                    </View>
+                                    <TextInput
+                                        multiline
+                                        style={[styles.textArea, { color: themeColors.text, backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1, minHeight: 150 }]}
+                                        value={primaryGreeting}
+                                        onChangeText={setPrimaryGreeting}
+                                        placeholder="Type your greeting here..."
+                                        placeholderTextColor={themeColors.icon}
+                                    />
+                                </View>
+                            )}
+                            {activeAdvancedModal === 'Knowledge Base' && (
+                                <View>
+                                    <View style={{ backgroundColor: themeColors.card, borderRadius: 12, padding: 16, marginBottom: 24, flexDirection: 'row', gap: 12 }}>
+                                        <Ionicons name="library-outline" size={24} color={themeColors.tint} />
+                                        <View style={{ flex: 1 }}>
+                                            <ThemedText style={{ color: themeColors.text, fontFamily: Fonts.bold, marginBottom: 4 }}>Core Knowledge</ThemedText>
+                                            <ThemedText style={{ color: themeColors.icon, fontFamily: Fonts.body, lineHeight: 20 }}>
+                                                Paste text, articles, or notes here. Your coach will use this unique knowledge to answer questions accurately.
+                                            </ThemedText>
+                                        </View>
+                                    </View>
+                                    <TextInput
+                                        multiline
+                                        style={[styles.textArea, { color: themeColors.text, backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1, height: 300 }]}
+                                        value={knowledgeBaseText}
+                                        onChangeText={setKnowledgeBaseText}
+                                        placeholder="Paste or type knowledge content here..."
+                                        placeholderTextColor={themeColors.icon}
+                                    />
+                                </View>
+                            )}
+                            {activeAdvancedModal === 'Who Am I?' && (
+                                <View>
+                                    <View style={{ backgroundColor: themeColors.card, borderRadius: 12, padding: 16, marginBottom: 24, flexDirection: 'row', gap: 12 }}>
+                                        <Ionicons name="person-circle-outline" size={24} color={themeColors.tint} />
+                                        <View style={{ flex: 1 }}>
+                                            <ThemedText style={{ color: themeColors.text, fontFamily: Fonts.bold, marginBottom: 4 }}>Bio & Backstory</ThemedText>
+                                            <ThemedText style={{ color: themeColors.icon, fontFamily: Fonts.body, lineHeight: 20 }}>
+                                                Describe your coach's background, origin story, and specific traits in detail. This helps define their identity.
+                                            </ThemedText>
+                                        </View>
+                                    </View>
+                                    <TextInput
+                                        multiline
+                                        style={[styles.textArea, { color: themeColors.text, backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1, minHeight: 150 }]}
+                                        value={whoAmI}
+                                        onChangeText={setWhoAmI}
+                                        placeholder="Type your bio here..."
+                                        placeholderTextColor={themeColors.icon}
+                                    />
+                                </View>
+                            )}
+                            {activeAdvancedModal === 'Social Links' && (
+                                <View>
+                                    <View style={{ backgroundColor: themeColors.card, borderRadius: 12, padding: 16, marginBottom: 24, flexDirection: 'row', gap: 12 }}>
+                                        <Ionicons name="share-social-outline" size={24} color={themeColors.tint} />
+                                        <View style={{ flex: 1 }}>
+                                            <ThemedText style={{ color: themeColors.text, fontFamily: Fonts.bold, marginBottom: 4 }}>Connect</ThemedText>
+                                            <ThemedText style={{ color: themeColors.icon, fontFamily: Fonts.body, lineHeight: 20 }}>
+                                                Add links to your coach's social profiles so users can follow them.
+                                            </ThemedText>
+                                        </View>
+                                    </View>
+                                    <TextInput
+                                        style={[styles.minimalInput, { color: themeColors.text, borderBottomWidth: 1, borderBottomColor: themeColors.border, backgroundColor: themeColors.background, padding: 12, borderRadius: 8, marginBottom: 20, borderWidth: 1, borderColor: themeColors.border }]}
+                                        value={socialLinks.instagram}
+                                        onChangeText={t => setSocialLinks({ ...socialLinks, instagram: t })}
+                                        placeholder="Instagram URL"
+                                        placeholderTextColor={themeColors.icon}
+                                    />
+                                    <TextInput
+                                        style={[styles.minimalInput, { color: themeColors.text, borderBottomWidth: 1, borderBottomColor: themeColors.border, backgroundColor: themeColors.background, padding: 12, borderRadius: 8, marginBottom: 20, borderWidth: 1, borderColor: themeColors.border }]}
+                                        value={socialLinks.twitter}
+                                        onChangeText={t => setSocialLinks({ ...socialLinks, twitter: t })}
+                                        placeholder="Twitter URL"
+                                        placeholderTextColor={themeColors.icon}
+                                    />
+                                </View>
+                            )}
+                        </ScrollView>
                     </View>
-                </KeyboardAvoidingView>
+                </TouchableOpacity>
             </Modal>
-
             <AuthModal
                 isVisible={showAuthModal}
                 onClose={() => setShowAuthModal(false)}
                 mode="signup"
             />
-        </SafeAreaView >
-    );
-}
-
-function PersonalityCard({ label, value, icon, error, onPress }: { label: string, value: string | null, icon: any, error?: boolean, onPress: () => void }) {
-    return (
-        <TouchableOpacity style={[styles.card, error && styles.errorBorder]} onPress={onPress}>
-            <View style={styles.cardInfo}>
-                <ThemedText style={[styles.cardLabel, error && { color: '#ff4444' }]}>{label}</ThemedText>
-                <ThemedText style={[styles.cardValue, !value && { color: '#444' }]}>{value || "Select"}</ThemedText>
-            </View>
-            <Ionicons name={icon} size={28} color={error ? '#ff4444' : "#aa48b7"} style={styles.cardIcon} />
-        </TouchableOpacity>
+        </SafeAreaView>
     );
 }
 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0a0a0a',
     },
     scrollContent: {
-        paddingHorizontal: 20,
-        paddingBottom: 120,
+        paddingHorizontal: 24,
+        paddingBottom: 100,
     },
-    headerTextContainer: {
-        alignItems: 'center',
-        marginVertical: 10,
+    headerSpacer: {
+        marginTop: 20,
+        marginBottom: 30,
     },
     mainTitle: {
-        fontSize: 32,
+        fontSize: 28,
         fontFamily: Fonts.bold,
-        color: '#fff',
-        textAlign: 'center',
-        paddingTop: 10,
+        marginBottom: 8,
     },
-    descriptionText: {
-        fontSize: 14,
-        color: '#888',
-        fontFamily: Fonts.body,
-        textAlign: 'center',
-        paddingHorizontal: 20,
-        lineHeight: 20,
-        marginTop: 8,
+    portraitContainer: {
+        alignSelf: 'center',
+        marginBottom: 40,
+        position: 'relative',
     },
-    stepIndicatorContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        marginVertical: 24,
-    },
-    stepWrapper: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    stepCircle: {
-        width: 32,
-        height: 32,
-        borderRadius: 16,
-        backgroundColor: '#1a1a1a',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#333',
-    },
-    activeStepCircle: {
-        backgroundColor: '#aa48b7',
-        borderColor: '#aa48b7',
-    },
-    stepLine: {
-        width: 20,
-        height: 2,
-        backgroundColor: '#333',
-        marginHorizontal: 4,
-    },
-    activeStepLine: {
-        backgroundColor: '#aa48b7',
-    },
-    typeSelectorContainer: {
-        flexDirection: 'row',
-        gap: 12,
-        marginBottom: 32,
-        paddingHorizontal: 4,
-    },
-    typeButton: {
-        flex: 1,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: '#151515',
-        height: 44,
-        borderRadius: 22,
-        borderWidth: 1,
-        borderColor: '#333',
-        gap: 8,
-    },
-    activeTypeButton: {
-        backgroundColor: '#aa48b7',
-        borderColor: '#aa48b7',
-    },
-    typeButtonText: {
-        fontSize: 14,
-        color: '#666',
-        fontFamily: Fonts.bold,
-    },
-    activeTypeButtonText: {
-        color: '#fff',
-    },
-    imageUploadSection: {
-        marginBottom: 24,
-        alignItems: 'center',
-    },
-    imagePlaceholder: {
-        width: 120,
-        height: 180,
-        borderRadius: 12,
-        backgroundColor: '#151515',
+    portraitImage: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
         borderWidth: 2,
-        borderColor: '#aa48b7',
+    },
+    portraitPlaceholder: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        borderWidth: 1,
         borderStyle: 'dashed',
         justifyContent: 'center',
         alignItems: 'center',
-        marginTop: 12,
     },
-    imagePlaceholderText: {
-        fontSize: 10,
-        color: '#666',
-        marginTop: 8,
+    editBadge: {
+        position: 'absolute',
+        bottom: 0,
+        right: 0,
+        width: 28,
+        height: 28,
+        borderRadius: 14,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 2,
+        borderColor: '#fff',
+    },
+    inputGroup: {
+        marginBottom: 24,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 12,
+    },
+    minimalInput: {
+        flex: 1,
+        fontSize: 18,
+        fontFamily: Fonts.body,
+        paddingVertical: 8,
+        borderBottomWidth: 1,
+    },
+    selectorText: {
+        fontSize: 18,
         fontFamily: Fonts.body,
     },
-    capturedImage: {
-        width: '100%',
-        height: '100%',
-        borderRadius: 12,
+    sectionContainer: {
+        marginBottom: 32,
     },
-    inputSection: {
-        marginBottom: 24,
-    },
-    sectionLabel: {
+    sectionTitle: {
         fontSize: 18,
         fontFamily: Fonts.bold,
-        color: '#fff',
-        textAlign: 'left',
-        marginBottom: 12,
-    },
-    sectionSubLabel: {
-        fontSize: 12,
-        color: '#666',
-        textAlign: 'left',
-        textTransform: 'lowercase',
-        marginTop: -8,
         marginBottom: 16,
-    },
-    inputWrapper: {
-        backgroundColor: '#151515',
-        borderWidth: 1,
-        borderColor: '#333',
-        borderRadius: 12,
-        height: 52,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 16,
-    },
-    textInput: {
-        flex: 1,
-        color: '#fff',
-        fontSize: 16,
-        fontFamily: Fonts.body,
-    },
-    horizontalScrollContainer: {
-        paddingHorizontal: 10,
-        alignItems: 'center',
-        height: 60,
-    },
-    agePickerContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#1a1a1a',
-        borderRadius: 12,
-        paddingVertical: 10,
-    },
-    ageItem: {
-        paddingHorizontal: 15,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    activeAgeItem: {
-        backgroundColor: '#aa48b7',
-        borderRadius: 8,
-        height: 44,
-        paddingHorizontal: 20,
-    },
-    ageText: {
-        color: '#444',
-        fontSize: 16,
-        fontFamily: Fonts.bold,
-    },
-    activeAgeText: {
-        color: '#fff',
-        fontSize: 20,
-    },
-    gridSection: {
-        marginBottom: 24,
     },
     grid: {
-        gap: 12,
-    },
-    gridRow: {
         flexDirection: 'row',
+        flexWrap: 'wrap',
         gap: 12,
     },
-    card: {
-        flex: 1,
-        backgroundColor: '#151515',
-        borderWidth: 1,
-        borderColor: '#333',
-        borderRadius: 12,
+    gridItem: {
+        width: '48%',
         padding: 16,
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
-        height: 80,
+        borderRadius: 12,
+        borderWidth: 1,
+        gap: 4,
     },
-    cardInfo: {
-        flex: 1,
-    },
-    cardLabel: {
+    gridLabel: {
         fontSize: 12,
-        color: '#fff',
-        fontFamily: Fonts.body,
-    },
-    cardValue: {
-        fontSize: 16,
-        color: '#fff',
+        textTransform: 'uppercase',
         fontFamily: Fonts.bold,
-        marginTop: 4,
+        letterSpacing: 0.5,
     },
-    cardIcon: {
-        opacity: 0.8,
-    },
-    accordionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 16,
-        borderTopWidth: 1,
-        borderBottomWidth: 1,
-        borderColor: '#222',
-        marginBottom: 16,
-    },
-    accordionTitle: {
+    gridValue: {
         fontSize: 14,
-        color: '#fff',
         fontFamily: Fonts.body,
+    },
+    advancedToggle: {
+        alignSelf: 'center',
+        padding: 10,
+        marginBottom: 20,
+    },
+    advancedToggleText: {
+        fontSize: 14,
+        fontFamily: Fonts.bold,
+    },
+    advancedContainer: {
+        gap: 12,
     },
     advancedItem: {
         flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#151515',
-        padding: 16,
-        borderRadius: 12,
-        marginBottom: 12,
-        borderWidth: 1,
-        borderColor: '#222',
-    },
-    advancedLabel: {
-        fontSize: 14,
-        color: '#fff',
-        fontFamily: Fonts.bold,
-    },
-    advancedSubLabel: {
-        fontSize: 12,
-        color: '#666',
-        fontFamily: Fonts.body,
-    },
-    aiButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#111',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#333',
-    },
-    actionItem: {
-        flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingVertical: 16,
-        borderBottomWidth: 1,
-        borderColor: '#222',
+        padding: 16,
+        borderRadius: 12,
     },
-    actionLabel: {
+    advancedItemText: {
         fontSize: 16,
-        color: '#fff',
         fontFamily: Fonts.body,
     },
-    bottomBar: {
+    bottomContainer: {
         position: 'absolute',
-        bottom: 0,
-        width: '100%',
-        paddingHorizontal: 20,
-        paddingBottom: 30,
-        paddingTop: 10,
-        backgroundColor: 'transparent',
+        bottom: 30,
+        left: 20,
+        right: 20,
     },
-    nextButton: {
-        borderRadius: 25,
-        overflow: 'hidden',
-    },
-    nextGradient: {
-        height: 50,
+    createButton: {
+        height: 56,
+        borderRadius: 28,
         justifyContent: 'center',
         alignItems: 'center',
-        flexDirection: 'row',
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 5,
     },
-    errorBorder: {
-        borderColor: '#ff4444',
-        borderWidth: 1.5,
-    },
-    buttonContent: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    nextText: {
-        color: '#fff',
+    createButtonText: {
         fontSize: 18,
         fontFamily: Fonts.bold,
     },
-    creditDeductionText: {
-        color: 'rgba(255,255,255,0.7)',
-        fontSize: 12,
-        fontFamily: Fonts.regular,
-        marginTop: -2,
-    },
-    creditBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0,0,0,0.3)',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
-        marginLeft: 12,
-    },
-    creditText: {
-        color: '#fff',
-        fontSize: 14,
-        fontFamily: Fonts.bold,
-    },
-    modalContainer: {
+    modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.8)',
+        backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'flex-end',
     },
     modalContent: {
-        backgroundColor: '#111',
-        borderTopLeftRadius: 30,
-        borderTopRightRadius: 30,
-        height: '60%',
-        padding: 24,
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        maxHeight: '90%',
+        paddingBottom: 40,
+        paddingTop: 12,
+    },
+    modalHandle: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#ccc',
+        borderRadius: 2,
+        alignSelf: 'center',
+        marginBottom: 16,
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontFamily: Fonts.bold,
+        textAlign: 'center',
+        marginBottom: 16,
+    },
+    modalItem: {
+        padding: 16,
+        borderBottomWidth: 1,
+    },
+    modalItemText: {
+        fontSize: 16,
+        fontFamily: Fonts.body,
+    },
+    fullScreenModal: {
+        flex: 1,
     },
     modalHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 24,
-    },
-    modalTitle: {
-        fontSize: 20,
-        fontFamily: Fonts.bold,
-        color: '#fff',
-    },
-    pickerItem: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 16,
+        padding: 16,
         borderBottomWidth: 1,
-        borderColor: '#222',
     },
-    pickerItemText: {
-        fontSize: 16,
-        color: '#ccc',
-        fontFamily: Fonts.body,
-    },
-    modalSection: {
-        marginBottom: 24,
-    },
-    modalSectionLabel: {
-        fontSize: 14,
+    modalHeaderTitle: {
+        fontSize: 18,
         fontFamily: Fonts.bold,
-        color: '#888',
-        marginBottom: 10,
-        textTransform: 'uppercase',
     },
-    modalTextArea: {
-        backgroundColor: '#1a1a1a',
+    textArea: {
+        height: 200,
         borderRadius: 12,
         padding: 16,
-        color: '#fff',
         fontSize: 16,
-        fontFamily: Fonts.body,
-        height: 150,
         textAlignVertical: 'top',
-        borderWidth: 1,
-        borderColor: '#333',
-    },
-    modalInputWrapper: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#1a1a1a',
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        height: 52,
-        borderWidth: 1,
-        borderColor: '#333',
-    },
-    modalInput: {
-        flex: 1,
-        color: '#fff',
-        fontSize: 16,
-        fontFamily: Fonts.body,
-    },
-    infoBox: {
-        flexDirection: 'row',
-        padding: 12,
-        backgroundColor: 'rgba(170, 72, 183, 0.1)',
-        borderRadius: 12,
-        marginTop: 12,
-        gap: 12,
-        borderWidth: 0.5,
-        borderColor: 'rgba(170, 72, 183, 0.3)',
-    },
-    infoText: {
-        flex: 1,
-        fontSize: 12,
-        color: '#aaa',
-        lineHeight: 18,
-        fontFamily: Fonts.body,
-    },
-    saveButton: {
-        marginTop: 10,
-        marginBottom: 30,
-        borderRadius: 25,
-        overflow: 'hidden',
-    },
-    saveButtonGradient: {
-        height: 50,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    saveButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontFamily: Fonts.bold,
-    },
-    googleLinkButton: {
-        backgroundColor: '#4285F4',
-        flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: 50,
-        borderRadius: 12,
-        marginTop: 10,
-    },
-    googleLinkButtonActive: {
-        backgroundColor: '#34A853',
-    },
-    googleLinkText: {
-        color: '#fff',
-        fontSize: 16,
-        fontFamily: Fonts.bold,
-    },
-    socialInputRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        marginBottom: 16,
-    },
-    socialIcon: {
-        width: 32,
-        marginRight: 12,
-    },
-    savedBadge: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: 'rgba(52, 168, 83, 0.1)',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-        gap: 4,
-    },
-    savedText: {
-        color: '#34A853',
-        fontSize: 10,
-        fontFamily: Fonts.bold,
-    },
-    closeButtonContainer: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: '#1a1a1a',
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#333',
-    },
-    exampleLink: {
-        color: '#aa48b7',
-        textDecorationLine: 'underline',
-        fontFamily: Fonts.bold,
-    },
-    guideTitle: {
-        fontSize: 15,
-        fontFamily: Fonts.bold,
-        color: '#fff',
-        marginTop: 24,
-        marginBottom: 12,
-    },
-    guideItem: {
-        flexDirection: 'row',
-        marginBottom: 8,
-        paddingRight: 10,
-    },
-    guideBullet: {
-        color: '#aa48b7',
-        fontSize: 16,
-        marginRight: 10,
-        marginTop: -1,
-    },
-    guideText: {
-        fontSize: 13,
-        color: '#999',
-        fontFamily: Fonts.body,
-        lineHeight: 18,
+        lineHeight: 24,
+        marginBottom: 20,
     },
 });

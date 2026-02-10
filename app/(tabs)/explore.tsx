@@ -2,28 +2,79 @@ import CharacterCard from '@/components/CharacterCard';
 import Header from '@/components/Header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
+import { useAuth } from '@/context/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import firestore from '@react-native-firebase/firestore';
 import { Stack, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   FlatList,
   Modal,
-  RefreshControl,
   StyleSheet,
   TextInput,
   TouchableOpacity,
-  View,
+  View
 } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 const cardWidth = (width - 28) / 2;
 
-const SORT_OPTIONS = ["Latest", "Popular", "Followers", "Chats"];
+const SkeletonCard = ({ themeColors }: { themeColors: any }) => {
+  const opacity = useSharedValue(0.3);
+
+  React.useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.3, { duration: 1000 }),
+        withTiming(0.6, { duration: 1000 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({ opacity: opacity.value }));
+
+  return (
+    <View style={{
+      width: cardWidth,
+      marginBottom: 16,
+      borderWidth: 1,
+      borderColor: themeColors.border,
+      padding: 12,
+      backgroundColor: themeColors.card // or transparent if card has bg
+    }}>
+      {/* Header Row: Avatar + Name */}
+      <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+        <Animated.View style={[{ width: 32, height: 32, borderRadius: 16, backgroundColor: themeColors.border, marginRight: 8 }, animatedStyle]} />
+        <Animated.View style={[{ height: 16, width: '60%', backgroundColor: themeColors.border, borderRadius: 4 }, animatedStyle]} />
+      </View>
+
+      {/* Specialization */}
+      <Animated.View style={[{ height: 12, width: '40%', backgroundColor: themeColors.border, marginBottom: 8, borderRadius: 2 }, animatedStyle]} />
+
+      {/* Description lines */}
+      <Animated.View style={[{ height: 12, width: '100%', backgroundColor: themeColors.border, marginBottom: 4, borderRadius: 2 }, animatedStyle]} />
+      <Animated.View style={[{ height: 12, width: '80%', backgroundColor: themeColors.border, marginBottom: 16, borderRadius: 2 }, animatedStyle]} />
+
+      {/* Buttons Row */}
+      <View style={{ flexDirection: 'row', gap: 8, marginTop: 'auto' }}>
+        <Animated.View style={[{ flex: 1, height: 32, backgroundColor: themeColors.border, borderRadius: 4 }, animatedStyle]} />
+        <Animated.View style={[{ flex: 1, height: 32, backgroundColor: themeColors.border, borderRadius: 4 }, animatedStyle]} />
+      </View>
+    </View>
+  );
+};
+
+const SORT_OPTIONS = ["Latest", "Popular", "Chats"];
 
 const FILTER_ATTRIBUTES = [
   "Sort",
@@ -61,115 +112,125 @@ const ExploreHeader = ({
   activeAttribute,
   setActiveAttribute,
   activeFilterValue,
-  setActiveFilterValue
-}: any) => (
-  <View style={{ backgroundColor: '#0a0a0a' }}>
-    <Header />
+  setActiveFilterValue,
+  setShowAttributePicker
+}: any) => {
+  const colorScheme = useColorScheme();
+  const themeColors = Colors[colorScheme ?? 'light'];
 
-    {/* Search */}
-    <ThemedView style={styles.searchContainer}>
-      <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
-      <TextInput
-        style={styles.searchInput}
-        placeholder="Enter name of the coach"
-        placeholderTextColor="#666"
-        value={searchQuery}
-        onChangeText={setSearchQuery}
-        onSubmitEditing={handleSearch}
-        returnKeyType="search"
-      />
-      {searchQuery.length > 0 ? (
-        <TouchableOpacity onPress={() => setSearchQuery('')}>
-          <Ionicons name="close-circle" size={20} color="#666" />
+  return (
+    <View style={{ backgroundColor: themeColors.card, paddingBottom: 12, marginBottom: 16 }}>
+      <Header />
+
+      {/* Merged Search & Specialization Bar */}
+      <ThemedView style={[styles.searchContainer, { backgroundColor: themeColors.background }]}>
+        <Ionicons name="search" size={18} color={themeColors.icon} style={styles.searchIcon} />
+        <TextInput
+          style={[styles.searchInput, { color: themeColors.text }]}
+          placeholder="Search coaches..."
+          placeholderTextColor={themeColors.placeholder}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          onSubmitEditing={handleSearch}
+          returnKeyType="search"
+        />
+
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')} style={{ marginRight: 8 }}>
+            <Ionicons name="close-circle" size={18} color={themeColors.icon} />
+          </TouchableOpacity>
+        )}
+
+        {/* Vertical Divider */}
+        <View style={{ width: 1, height: 20, backgroundColor: themeColors.border, marginRight: 12 }} />
+
+        {/* Specialization Dropdown */}
+        <TouchableOpacity
+          onPress={() => setShowSpecPicker(true)}
+          style={styles.inlineSpecButton}
+        >
+          <ThemedText style={[styles.inlineSpecText, { color: themeColors.text }]}>
+            {activeSpecialization === 'All' ? 'All' : (activeSpecialization.length > 8 ? activeSpecialization.slice(0, 8) + '..' : activeSpecialization)}
+          </ThemedText>
+          <Ionicons name="chevron-down" size={12} color={themeColors.icon} style={{ marginLeft: 4 }} />
         </TouchableOpacity>
-      ) : null}
-    </ThemedView>
+      </ThemedView>
 
-    {/* Specialization Filter (Primary) */}
-    <View style={{ paddingLeft: 10, marginTop: 12 }}>
-      <TouchableOpacity
-        style={styles.filterButton}
-        onPress={() => setShowSpecPicker(true)}
-      >
-        <ThemedText style={styles.filterLabel}>
-          Specialization: <ThemedText style={styles.filterValue}>{activeSpecialization}</ThemedText>
-        </ThemedText>
-        <Ionicons name="chevron-down" size={16} color="#666" />
-      </TouchableOpacity>
-    </View>
-
-    {/* Attribute Tabs (Includes Sort as first item) */}
-    <View>
-      <FlatList
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        style={styles.categoriesScroll}
-        data={FILTER_ATTRIBUTES}
-        keyExtractor={(item) => item}
-        renderItem={({ item }) => {
-          if (item === 'Sort') {
-            return (
-              <TouchableOpacity
-                style={[styles.categoryPill, { borderColor: '#aa48b7', borderWidth: 1 }]}
-                onPress={() => setShowSortPicker(true)}
-              >
-                <ThemedText style={[styles.categoryText, { color: '#aa48b7' }]}>
-                  Sort: <ThemedText style={{ color: '#fff' }}>{activeSort}</ThemedText>
-                </ThemedText>
-              </TouchableOpacity>
-            );
-          }
-          return (
-            <TouchableOpacity
-              key={item}
-              style={[styles.categoryPill, activeAttribute === item && styles.activeCategory]}
-              onPress={() => {
-                setActiveAttribute(activeAttribute === item ? null : item);
-                setActiveFilterValue(null);
-              }}
-            >
-              <ThemedText style={[styles.categoryText, activeAttribute === item && styles.activeCategoryText]}>
-                {item}
-              </ThemedText>
-            </TouchableOpacity>
-          );
-        }}
-      />
-    </View>
-
-    {/* Attribute Values (Sub-filter) */}
-    {activeAttribute && (
+      {/* Filter Chips - Single Single Row */}
       <View>
         <FlatList
           horizontal
           showsHorizontalScrollIndicator={false}
-          style={[styles.categoriesScroll, { marginTop: 0 }]}
-          data={FILTER_OPTIONS[activeAttribute]}
+          style={styles.categoriesScroll}
+          contentContainerStyle={{ paddingRight: 20 }}
+          data={FILTER_ATTRIBUTES}
           keyExtractor={(item) => item}
-          renderItem={({ item }) => (
-            <TouchableOpacity
-              key={item}
-              style={[styles.subCategoryPill, activeFilterValue === item && styles.activeSubCategory]}
-              onPress={() => setActiveFilterValue(item === activeFilterValue ? null : item)}
-            >
-              <ThemedText style={[styles.subCategoryText, activeFilterValue === item && styles.activeSubCategoryText]}>
-                {item}
-              </ThemedText>
-            </TouchableOpacity>
-          )}
+          renderItem={({ item }) => {
+            const isActive = (item === 'Sort' && activeSort !== 'Latest') ||
+              (item !== 'Sort' && activeAttribute === item && activeFilterValue !== null);
+
+            return (
+              <TouchableOpacity
+                style={[
+                  styles.compactPill,
+                  { backgroundColor: isActive ? themeColors.text : themeColors.background }
+                ]}
+                onPress={() => {
+                  if (item === 'Sort') {
+                    setShowSortPicker(true);
+                  } else {
+                    setActiveAttribute(item);
+                    setShowAttributePicker(true);
+                  }
+                }}
+              >
+                <ThemedText style={[
+                  styles.compactPillText,
+                  { color: isActive ? themeColors.background : themeColors.icon }
+                ]}>
+                  {item === 'Sort' && activeSort !== 'Latest' ? activeSort : item}
+                </ThemedText>
+                <Ionicons
+                  name="chevron-down"
+                  size={10}
+                  color={isActive ? themeColors.background : themeColors.icon}
+                  style={{ marginLeft: 6 }}
+                />
+              </TouchableOpacity>
+            );
+          }}
         />
       </View>
-    )}
-  </View>
-);
+
+      {/* Active Filter Indicator - Minimalist Tag */}
+      {activeFilterValue && (
+        <View style={{ paddingHorizontal: 16, marginTop: 8, flexDirection: 'row', alignItems: 'center' }}>
+          <TouchableOpacity
+            onPress={() => setActiveFilterValue(null)}
+            style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: themeColors.card, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 }}
+          >
+            <ThemedText style={{ fontSize: 12, color: themeColors.text, marginRight: 4 }}>
+              {activeAttribute}: {activeFilterValue}
+            </ThemedText>
+            <Ionicons name="close" size={12} color={themeColors.icon} />
+          </TouchableOpacity>
+        </View>
+      )}
+    </View>
+  );
+};
 
 export default function ExploreScreen() {
   const router = useRouter();
+  const { user } = useAuth();
+  const colorScheme = useColorScheme();
+  const themeColors = Colors[colorScheme ?? 'light'];
   const [coaches, setCoaches] = useState<any[]>([]);
   const [lastVisible, setLastVisible] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
   const [hasMore, setHasMore] = useState(true);
 
   // Filter & Search States
@@ -179,17 +240,20 @@ export default function ExploreScreen() {
 
   const [activeSort, setActiveSort] = useState('Latest');
   const [showSortPicker, setShowSortPicker] = useState(false);
+  const [showAttributePicker, setShowAttributePicker] = useState(false);
 
   const [activeAttribute, setActiveAttribute] = useState<string | null>(null);
   const [activeFilterValue, setActiveFilterValue] = useState<string | null>(null);
 
-  const fetchCoaches = useCallback(async (isRefreshing = false) => {
-    if (loading || (loadingMore && !isRefreshing)) return;
+  const fetchCoaches = useCallback(async (isReset = false, isPullToRefresh = false) => {
+    if (loading || (loadingMore && !isReset && !isPullToRefresh)) return;
 
-    if (isRefreshing) {
+    if (isPullToRefresh) {
       setRefreshing(true);
-    } else if (coaches.length === 0) {
+      // Do not clear coaches to keep the list visible while refreshing
+    } else if (isReset) {
       setLoading(true);
+      setCoaches([]); // Clear list to trigger skeleton view for hard resets (filters/search)
     } else {
       setLoadingMore(true);
     }
@@ -219,9 +283,6 @@ export default function ExploreScreen() {
           case 'Popular':
             query = query.orderBy('likes', 'desc');
             break;
-          case 'Followers':
-            query = query.orderBy('followers', 'desc');
-            break;
           case 'Chats':
             query = query.orderBy('chatCount', 'desc');
             break;
@@ -232,7 +293,8 @@ export default function ExploreScreen() {
 
       query = query.limit(PAGE_SIZE);
 
-      if (!isRefreshing && lastVisible) {
+      // If resetting or refreshing, we start from top, so NO startAfter
+      if (!isReset && !isPullToRefresh && lastVisible) {
         query = query.startAfter(lastVisible);
       }
 
@@ -243,7 +305,7 @@ export default function ExploreScreen() {
         ...doc.data()
       }));
 
-      if (isRefreshing) {
+      if (isReset || isPullToRefresh) {
         setCoaches(fetchedCoaches);
       } else {
         setCoaches(prev => {
@@ -261,17 +323,18 @@ export default function ExploreScreen() {
       setLoading(false);
       setLoadingMore(false);
       setRefreshing(false);
+      setIsInitialLoad(false);
     }
   }, [lastVisible, loading, loadingMore, coaches.length, activeSpecialization, activeAttribute, activeFilterValue, activeSort, searchQuery]);
 
   const handleSearch = () => {
     setLastVisible(null);
     setHasMore(true);
-    setCoaches([]);
+    // Standard reset
     fetchCoaches(true);
   };
 
-  // Trigger refresh when filters change (not search text)
+  // Trigger refresh when filters change
   useEffect(() => {
     setLastVisible(null);
     setHasMore(true);
@@ -288,125 +351,17 @@ export default function ExploreScreen() {
   }, [searchQuery]);
 
   const onRefresh = () => {
+    setRefreshing(true);
     setLastVisible(null);
     setHasMore(true);
-    fetchCoaches(true);
+    fetchCoaches(true, true);
   };
-
-  /* 
-    Memoize the header element to prevent re-renders from dismissing the keyboard.
-  */
-  const headerElement = React.useMemo(() => (
-    <View style={{ backgroundColor: '#0a0a0a' }}>
-      <Header />
-
-      {/* Search */}
-      <ThemedView style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color="#666" style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Enter name of the coach"
-          placeholderTextColor="#666"
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
-        />
-        {searchQuery.length > 0 ? (
-          <TouchableOpacity onPress={() => {
-            setSearchQuery('');
-            // Optional: Auto-reset list when clearing? 
-            // setLastVisible(null); setHasMore(true); fetchCoaches(true);
-          }}>
-            <Ionicons name="close-circle" size={20} color="#666" />
-          </TouchableOpacity>
-        ) : null}
-      </ThemedView>
-
-      {/* Specialization Filter (Primary) */}
-      <View style={{ paddingLeft: 10, marginTop: 12 }}>
-        <TouchableOpacity
-          style={styles.filterButton}
-          onPress={() => setShowSpecPicker(true)}
-        >
-          <ThemedText style={styles.filterLabel}>
-            Specialization: <ThemedText style={styles.filterValue}>{activeSpecialization}</ThemedText>
-          </ThemedText>
-          <Ionicons name="chevron-down" size={16} color="#666" />
-        </TouchableOpacity>
-      </View>
-
-      {/* Attribute Tabs (Includes Sort as first item) */}
-      <View>
-        <FlatList
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          style={styles.categoriesScroll}
-          data={FILTER_ATTRIBUTES}
-          keyExtractor={(item) => item}
-          renderItem={({ item }) => {
-            if (item === 'Sort') {
-              return (
-                <TouchableOpacity
-                  style={[styles.categoryPill, { borderColor: '#aa48b7', borderWidth: 1 }]}
-                  onPress={() => setShowSortPicker(true)}
-                >
-                  <ThemedText style={[styles.categoryText, { color: '#aa48b7' }]}>
-                    Sort: <ThemedText style={{ color: '#fff' }}>{activeSort}</ThemedText>
-                  </ThemedText>
-
-                </TouchableOpacity>
-              );
-            }
-            return (
-              <TouchableOpacity
-                key={item}
-                style={[styles.categoryPill, activeAttribute === item && styles.activeCategory]}
-                onPress={() => {
-                  setActiveAttribute(activeAttribute === item ? null : item);
-                  setActiveFilterValue(null);
-                }}
-              >
-                <ThemedText style={[styles.categoryText, activeAttribute === item && styles.activeCategoryText]}>
-                  {item}
-                </ThemedText>
-              </TouchableOpacity>
-            );
-          }}
-        />
-      </View>
-
-      {/* Attribute Values (Sub-filter) */}
-      {activeAttribute && (
-        <View>
-          <FlatList
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={[styles.categoriesScroll, { marginTop: 0 }]}
-            data={FILTER_OPTIONS[activeAttribute]}
-            keyExtractor={(item) => item}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                key={item}
-                style={[styles.subCategoryPill, activeFilterValue === item && styles.activeSubCategory]}
-                onPress={() => setActiveFilterValue(item === activeFilterValue ? null : item)}
-              >
-                <ThemedText style={[styles.subCategoryText, activeFilterValue === item && styles.activeSubCategoryText]}>
-                  {item}
-                </ThemedText>
-              </TouchableOpacity>
-            )}
-          />
-        </View>
-      )}
-    </View>
-  ), [searchQuery, activeSpecialization, activeSort, activeAttribute, activeFilterValue]);
 
   const renderFooter = () => {
     if (!loadingMore) return <View style={{ height: 40 }} />;
     return (
       <View style={styles.loaderFooter}>
-        <ActivityIndicator size="small" color="#aa48b7" />
+        <ActivityIndicator size="small" color={themeColors.text} />
       </View>
     );
   };
@@ -415,49 +370,63 @@ export default function ExploreScreen() {
     if (loading) return null;
     return (
       <View style={styles.emptyContainer}>
-        <Ionicons name="search-outline" size={48} color="#333" style={{ marginBottom: 16 }} />
-        <ThemedText style={styles.emptyText}>No coaches found matching your criteria.</ThemedText>
-        <ThemedText style={{ color: '#666', marginTop: 8, textAlign: 'center' }}>
+        <Ionicons name="search-outline" size={48} color={themeColors.placeholder} style={{ marginBottom: 16 }} />
+        <ThemedText style={[styles.emptyText, { color: themeColors.text }]}>No coaches found matching your criteria.</ThemedText>
+        <ThemedText style={{ color: themeColors.icon, marginTop: 8, textAlign: 'center' }}>
           Try adjusting your filters or search terms.
         </ThemedText>
       </View>
     );
   };
 
+  const headerElement = React.useMemo(() => (
+    <ExploreHeader
+      searchQuery={searchQuery}
+      setSearchQuery={setSearchQuery}
+      handleSearch={handleSearch}
+      activeSpecialization={activeSpecialization}
+      setShowSpecPicker={setShowSpecPicker}
+      activeSort={activeSort}
+      setShowSortPicker={setShowSortPicker}
+      activeAttribute={activeAttribute}
+      setActiveAttribute={setActiveAttribute}
+      activeFilterValue={activeFilterValue}
+      setActiveFilterValue={setActiveFilterValue}
+      setShowAttributePicker={setShowAttributePicker}
+    />
+  ), [searchQuery, activeSpecialization, activeSort, activeAttribute, activeFilterValue]);
+
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
       <Stack.Screen options={{ headerShown: false }} />
 
-      {loading && coaches.length === 0 ? (
-        <View style={styles.centeredLoader}>
-          <ActivityIndicator size="large" color="#aa48b7" />
-        </View>
-      ) : (
-        <FlatList
-          data={coaches}
-          numColumns={2}
-          keyExtractor={(item) => item.id}
-          ListHeaderComponent={headerElement}
-          ListFooterComponent={renderFooter}
-          ListEmptyComponent={renderEmpty}
-          showsVerticalScrollIndicator={false}
-          columnWrapperStyle={styles.columnWrapper}
-          contentContainerStyle={styles.flatListContent}
-          onEndReached={() => {
-            if (hasMore && !loadingMore && !loading) {
-              fetchCoaches();
-            }
-          }}
-          onEndReachedThreshold={0.5}
-          refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              tintColor="#aa48b7"
-              colors={["#aa48b7"]}
-            />
+
+      {/* Main List - Handles both Content and Loading/Empty states to keep Header visible */}
+      <FlatList
+        data={((loading || isInitialLoad) && coaches.length === 0) ? [1, 2, 3, 4, 5, 6] : coaches}
+        numColumns={2}
+        keyExtractor={(item) => typeof item === 'number' ? `skeleton-${item}` : item.id}
+        ListHeaderComponent={headerElement}
+        ListFooterComponent={renderFooter}
+        ListEmptyComponent={(!loading && !isInitialLoad) ? renderEmpty : null}
+        showsVerticalScrollIndicator={false}
+        overScrollMode="never"
+        columnWrapperStyle={styles.columnWrapper}
+        contentContainerStyle={styles.flatListContent}
+        onEndReached={() => {
+          if (hasMore && !loadingMore && !loading && coaches.length > 0) {
+            fetchCoaches();
           }
-          renderItem={({ item }) => (
+        }}
+        onEndReachedThreshold={0.5}
+        refreshing={refreshing}
+        onRefresh={onRefresh}
+
+        renderItem={({ item }) => {
+          if (typeof item === 'number') {
+            return <SkeletonCard themeColors={themeColors} />;
+          }
+          return (
             <CharacterCard
               name={item.name}
               specialization={item.specialization}
@@ -469,12 +438,34 @@ export default function ExploreScreen() {
               isVerified={item.isVerified}
               width={cardWidth}
               height={cardWidth * 1.6}
-              onPress={() => router.push({ pathname: '/coach/[id]', params: { id: item.id } })}
-              onMessagePress={() => router.push({ pathname: '/message/[id]', params: { id: item.id } })}
+              onPress={() => router.push({
+                pathname: '/coach/[id]',
+                params: {
+                  id: item.id,
+                  initialName: item.name,
+                  initialPortrait: item.portraitUrl,
+                  initialSpec: item.specialization,
+                  initialVerified: item.isVerified ? 'true' : 'false'
+                }
+              })}
+              onMessagePress={() => {
+                if (!user) {
+                  Alert.alert('Sign In', 'Please sign in to chat with this coach.');
+                  return;
+                }
+                router.push({
+                  pathname: '/message/[id]',
+                  params: {
+                    id: item.id,
+                    initialName: item.name,
+                    initialPortrait: item.portraitUrl
+                  }
+                });
+              }}
             />
-          )}
-        />
-      )}
+          );
+        }}
+      />
 
       {/* Sort Picker Modal */}
       <Modal visible={showSortPicker} transparent animationType="fade">
@@ -483,21 +474,21 @@ export default function ExploreScreen() {
           activeOpacity={1}
           onPress={() => setShowSortPicker(false)}
         >
-          <View style={styles.sortPickerContent}>
-            <ThemedText style={styles.modalTitle}>Sort By</ThemedText>
+          <View style={[styles.sortPickerContent, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+            <ThemedText style={[styles.modalTitle, { color: themeColors.text }]}>Sort By</ThemedText>
             {SORT_OPTIONS.map((option) => (
               <TouchableOpacity
                 key={option}
-                style={styles.sortOption}
+                style={[styles.sortOption, { borderBottomColor: themeColors.border }]}
                 onPress={() => {
                   setActiveSort(option);
                   setShowSortPicker(false);
                 }}
               >
-                <ThemedText style={[styles.sortOptionText, activeSort === option && { color: '#aa48b7' }]}>
+                <ThemedText style={[styles.sortOptionText, { color: activeSort === option ? themeColors.text : themeColors.icon, fontWeight: activeSort === option ? 'bold' : 'normal' }]}>
                   {option}
                 </ThemedText>
-                {activeSort === option && <Ionicons name="checkmark" size={20} color="#aa48b7" />}
+                {activeSort === option && <Ionicons name="checkmark" size={20} color={themeColors.text} />}
               </TouchableOpacity>
             ))}
           </View>
@@ -511,8 +502,8 @@ export default function ExploreScreen() {
           activeOpacity={1}
           onPress={() => setShowSpecPicker(false)}
         >
-          <View style={styles.sortPickerContent}>
-            <ThemedText style={styles.modalTitle}>Select Specialization</ThemedText>
+          <View style={[styles.sortPickerContent, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+            <ThemedText style={[styles.modalTitle, { color: themeColors.text }]}>Specialization</ThemedText>
             <FlatList
               data={['All', ...FILTER_OPTIONS['Specialization']]}
               keyExtractor={(item) => item}
@@ -520,16 +511,49 @@ export default function ExploreScreen() {
               showsVerticalScrollIndicator={false}
               renderItem={({ item }) => (
                 <TouchableOpacity
-                  style={styles.sortOption}
+                  style={[styles.sortOption, { borderBottomColor: themeColors.border }]}
                   onPress={() => {
                     setActiveSpecialization(item);
                     setShowSpecPicker(false);
                   }}
                 >
-                  <ThemedText style={[styles.sortOptionText, activeSpecialization === item && { color: '#aa48b7' }]}>
+                  <ThemedText style={[styles.sortOptionText, { color: activeSpecialization === item ? themeColors.text : themeColors.icon, fontWeight: activeSpecialization === item ? 'bold' : 'normal' }]}>
                     {item}
                   </ThemedText>
-                  {activeSpecialization === item && <Ionicons name="checkmark" size={20} color="#aa48b7" />}
+                  {activeSpecialization === item && <Ionicons name="checkmark" size={20} color={themeColors.text} />}
+                </TouchableOpacity>
+              )}
+            />
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Attribute Picker Modal */}
+      <Modal visible={showAttributePicker} transparent animationType="fade">
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowAttributePicker(false)}
+        >
+          <View style={[styles.sortPickerContent, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+            <ThemedText style={[styles.modalTitle, { color: themeColors.text }]}>{activeAttribute}</ThemedText>
+            <FlatList
+              data={activeAttribute ? FILTER_OPTIONS[activeAttribute] : []}
+              keyExtractor={(item) => item}
+              style={{ maxHeight: 300 }}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.sortOption, { borderBottomColor: themeColors.border }]}
+                  onPress={() => {
+                    setActiveFilterValue(item);
+                    setShowAttributePicker(false);
+                  }}
+                >
+                  <ThemedText style={[styles.sortOptionText, { color: activeFilterValue === item ? themeColors.text : themeColors.icon, fontWeight: activeFilterValue === item ? 'bold' : 'normal' }]}>
+                    {item}
+                  </ThemedText>
+                  {activeFilterValue === item && <Ionicons name="checkmark" size={20} color={themeColors.text} />}
                 </TouchableOpacity>
               )}
             />
@@ -543,81 +567,58 @@ export default function ExploreScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#0a0a0a',
+    backgroundColor: '#0a0a0a', // Or strictly themeColors.background via inline style
   },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1a1a1a',
-    marginHorizontal: 10,
+    marginHorizontal: 16,
     marginTop: 16,
-    paddingHorizontal: 12,
-    height: 44,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#333',
+    paddingHorizontal: 16,
+    height: 50,
+    borderRadius: 25,
+    borderWidth: 0,
+    // Add subtle shadow if needed, but keeping flat for now as requested
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 10,
   },
   searchInput: {
     flex: 1,
-    color: '#fff',
-    fontSize: 18,
+    fontSize: 16,
     fontFamily: Fonts.body,
   },
-  filterButton: {
+  inlineSpecButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#1a1a1a',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 4,
-    marginRight: 8,
-    height: 36,
+    height: '100%',
   },
-  tagLabel: {
-    color: '#888',
-    fontSize: 12,
+  inlineSpecText: {
+    fontSize: 14,
     fontFamily: Fonts.body,
-    textTransform: 'capitalize',
+    fontWeight: '500',
   },
-  filterLabel: {
-    color: '#777',
-    fontSize: 16,
-    fontFamily: Fonts.body,
-  },
-  filterValue: {
-    color: '#fff',
-    fontSize: 16,
-    fontFamily: Fonts.bold,
-  },
-
   categoriesScroll: {
-    marginTop: 12,
-    paddingLeft: 10,
+    marginTop: 16,
+    paddingLeft: 16,
     flexDirection: 'row',
-    marginBottom: 10,
+    marginBottom: 8,
   },
-  categoryPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 4,
+  compactPill: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
     marginRight: 8,
-    borderRadius: 8,
-    height: 32,
+    borderRadius: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
     justifyContent: 'center',
   },
-  activeCategory: {
-    backgroundColor: '#aa48b7',
+  compactPillText: {
+    fontSize: 14,
+    fontFamily: Fonts.body,
+    fontWeight: '500',
   },
-  categoryText: {
-    color: '#888',
-    fontSize: 18,
-    fontFamily: Fonts.bold,
-  },
-  activeCategoryText: {
-    color: '#fff',
-  },
+  // ... other styles maintained below if needed, or simplified
   loaderFooter: {
     paddingVertical: 20,
     alignItems: 'center',
@@ -627,31 +628,21 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     marginRight: 8,
     borderRadius: 8,
-    backgroundColor: '#1a1a1a',
     borderWidth: 1,
-    borderColor: '#333',
     height: 32,
     justifyContent: 'center',
   },
-  activeSubCategory: {
-    backgroundColor: '#333',
-    borderColor: '#aa48b7',
-  },
   subCategoryText: {
-    color: '#888',
     fontSize: 13,
     fontFamily: Fonts.body,
   },
-  activeSubCategoryText: {
-    color: '#fff',
-    fontFamily: Fonts.bold,
-  },
+  // activeSubCategory styles removed as they are dynamic now mostly, 
+  // but kept for compatibility if referenced elsewhere? No, I updated referencing.
 
   centeredLoader: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#0a0a0a',
   },
   flatListContent: {
     paddingBottom: 20,
@@ -668,7 +659,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   emptyText: {
-    color: '#666',
     fontSize: 16,
     fontFamily: Fonts.body,
   },
@@ -680,24 +670,14 @@ const styles = StyleSheet.create({
   },
   sortPickerContent: {
     width: '80%',
-    backgroundColor: '#1a1a1a',
     borderRadius: 12,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#333',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: '#aa48b7',
-    fontFamily: Fonts.body,
-    marginBottom: 24,
-    fontWeight: '500',
   },
   modalTitle: {
     fontSize: 20,
     fontFamily: Fonts.bold,
     marginBottom: 20,
-    color: '#fff',
     textAlign: 'center',
   },
   sortOption: {
@@ -706,11 +686,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 15,
     borderBottomWidth: 1,
-    borderBottomColor: '#333',
   },
   sortOptionText: {
     fontSize: 18,
-    color: '#fff',
     fontFamily: Fonts.body,
   },
 });

@@ -1,5 +1,7 @@
 import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
@@ -19,15 +21,17 @@ interface PremiumBadgeProps {
 
 export default function PremiumBadge({ showText = true, size = 'small' }: PremiumBadgeProps) {
     const shimmerValue = useSharedValue(-1);
+    const colorScheme = useColorScheme();
+    const themeColors = Colors[colorScheme ?? 'light'];
 
     useEffect(() => {
         shimmerValue.value = withRepeat(
             withTiming(1, {
-                duration: 2000,
-                easing: Easing.bezier(0.4, 0, 0.2, 1),
+                duration: 2500,
+                easing: Easing.inOut(Easing.ease),
             }),
             -1,
-            false
+            true // reverse
         );
     }, []);
 
@@ -35,37 +39,36 @@ export default function PremiumBadge({ showText = true, size = 'small' }: Premiu
         return {
             transform: [
                 {
-                    translateX: shimmerValue.value * 150,
+                    translateX: shimmerValue.value * 50, // Reduced range for subtle effect
                 },
             ],
+            opacity: 0.3,
         };
     });
 
     const isLarge = size === 'large';
+    const goldColor = '#FFD700';
 
     return (
-        <View style={[styles.badgeContainer, isLarge && styles.badgeLarge]}>
-            <LinearGradient
-                colors={['#FFD700', '#FDB931', '#FFD700']}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={StyleSheet.absoluteFill}
-            />
-
-            {/* Shimmer Effect */}
+        <View style={[
+            styles.badgeContainer,
+            isLarge && styles.badgeLarge,
+            { borderColor: goldColor, backgroundColor: colorScheme === 'dark' ? 'rgba(255, 215, 0, 0.1)' : 'rgba(255, 215, 0, 0.05)' }
+        ]}>
+            {/* Minimalist Shimmer Overlay */}
             <Animated.View style={[StyleSheet.absoluteFill, animatedShimmerStyle]}>
                 <LinearGradient
-                    colors={['transparent', 'rgba(255, 255, 255, 0.4)', 'transparent']}
+                    colors={['transparent', goldColor, 'transparent']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 0 }}
-                    style={styles.shimmerGradient}
+                    style={StyleSheet.absoluteFill}
                 />
             </Animated.View>
 
             <View style={styles.content}>
-                <Ionicons name="sparkles" size={isLarge ? 16 : 12} color="#000" style={styles.icon} />
+                <Ionicons name="sparkles" size={isLarge ? 14 : 10} color={goldColor} style={styles.icon} />
                 {showText && (
-                    <ThemedText style={[styles.badgeText, isLarge && styles.badgeTextLarge]}>
+                    <ThemedText style={[styles.badgeText, isLarge && styles.badgeTextLarge, { color: goldColor }]}>
                         PREMIUM
                     </ThemedText>
                 )}
@@ -76,23 +79,18 @@ export default function PremiumBadge({ showText = true, size = 'small' }: Premiu
 
 const styles = StyleSheet.create({
     badgeContainer: {
-        height: 24,
-        paddingHorizontal: 10,
-        borderRadius: 12,
+        height: 22,
+        paddingHorizontal: 8,
+        borderRadius: 4,
         flexDirection: 'row',
         alignItems: 'center',
         overflow: 'hidden',
         borderWidth: 1,
-        borderColor: 'rgba(255, 255, 255, 0.2)',
     },
     badgeLarge: {
-        height: 32,
-        paddingHorizontal: 16,
-        borderRadius: 16,
-    },
-    shimmerGradient: {
-        width: 100,
-        height: '100%',
+        height: 30,
+        paddingHorizontal: 12,
+        borderRadius: 6,
     },
     content: {
         flexDirection: 'row',
@@ -103,14 +101,13 @@ const styles = StyleSheet.create({
         marginRight: 4,
     },
     badgeText: {
-        color: '#000',
         fontSize: 10,
-        fontWeight: '900',
+        fontWeight: '700',
         fontFamily: Fonts.bold,
-        letterSpacing: 0.5,
+        letterSpacing: 1,
     },
     badgeTextLarge: {
-        fontSize: 14,
-        letterSpacing: 1,
+        fontSize: 12,
+        letterSpacing: 1.5,
     },
 });

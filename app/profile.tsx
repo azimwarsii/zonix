@@ -1,16 +1,16 @@
 import AuthModal from '@/components/AuthModal';
-import Header from '@/components/Header';
 import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/context/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import firestore from '@react-native-firebase/firestore';
 import functions from '@react-native-firebase/functions';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
 import React, { useEffect, useState, } from 'react';
 import { ActivityIndicator, Alert, Linking, Modal, Platform, ScrollView, StyleSheet, Switch, TextInput, TouchableOpacity, View } from 'react-native';
-import Animated, {
+import {
     Easing,
     useAnimatedStyle,
     useSharedValue,
@@ -21,7 +21,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function ProfileScreen() {
     const router = useRouter()
-    const { user, userData, signOut, deleteAccount, presentPaywall } = useAuth();
+    const { user, userData, signOut, deleteAccount, presentPaywall, restorePurchases } = useAuth();
+    const colorScheme = useColorScheme();
+    const themeColors = Colors[colorScheme ?? 'light'];
     const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
     const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
     const [redeemCode, setRedeemCode] = useState('');
@@ -33,6 +35,7 @@ export default function ProfileScreen() {
     const [isNotificationsModalVisible, setIsNotificationsModalVisible] = useState(false);
     const [isPreferencesModalVisible, setIsPreferencesModalVisible] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isRedeemCodeModalVisible, setIsRedeemCodeModalVisible] = useState(false);
 
     const rotation = useSharedValue(0);
 
@@ -171,285 +174,256 @@ export default function ProfileScreen() {
         await updateSetting(key, value);
     };
 
-    const renderNotLoggedIn = () => (
-        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            {/* Get Started Card */}
-            <View style={styles.card}>
-                <ThemedText style={styles.cardTitle}>Get Started</ThemedText>
-                <ThemedText style={styles.cardSubtitle}>Sign up to get 1000 free coins</ThemedText>
-
-                <View style={styles.promoContainer}>
-                    <ThemedText style={styles.promoTextBold}>Create a free account and get 50 coins!</ThemedText>
-
-                    <View style={styles.benefitItem}>
-                        <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
-                        <ThemedText style={styles.benefitText}>1000 free coins upon signup</ThemedText>
-                    </View>
-                    <View style={styles.benefitItem}>
-                        <Ionicons name="checkmark-circle-outline" size={18} color="#fff" />
-                        <ThemedText style={styles.benefitText}>No credit card required</ThemedText>
-                    </View>
-                </View>
-
-                <View style={styles.buttonRow}>
-                    <TouchableOpacity style={styles.primaryButton} onPress={() => openAuthModal('signup')}>
-                        <ThemedText style={styles.primaryButtonText}>Sign Up Now</ThemedText>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={styles.outlineButton} onPress={() => openAuthModal('login')}>
-                        <ThemedText style={styles.outlineButtonText}>Login</ThemedText>
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-            {/* Settings Section */}
-            <View style={styles.section}>
-                <ThemedText style={styles.sectionTitle}>Settings</ThemedText>
-                <ThemedText style={styles.sectionSubtitle}>Manage your profile and notification settings</ThemedText>
-
-                <TouchableOpacity style={styles.itemCard}>
-                    <View>
-                        <ThemedText style={styles.itemTitle}>Notifications</ThemedText>
-                        <ThemedText style={styles.itemSubtitle}>Configure your notification preferences</ThemedText>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color="#666" />
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.itemCard}>
-                    <View>
-                        <ThemedText style={styles.itemTitle}>Preferences</ThemedText>
-                        <ThemedText style={styles.itemSubtitle}>Video looping, active messages, and more</ThemedText>
-                    </View>
-                    <Ionicons name="chevron-forward" size={20} color="#666" />
-                </TouchableOpacity>
-            </View>
-
-            {/* Support Section */}
-            <View style={styles.section}>
-                <ThemedText style={styles.sectionTitle}>Support & Feedback</ThemedText>
-
-                <TouchableOpacity style={[styles.itemCard, { backgroundColor: '#5865F2' }]}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                        <Ionicons name="logo-discord" size={24} color="#fff" />
-                        <View>
-                            <ThemedText style={styles.itemTitleWhite}>Join the Community</ThemedText>
-                            <ThemedText style={styles.itemSubtitleWhite}>Get help from coaches</ThemedText>
-                        </View>
-                    </View>
-                    <Ionicons name="open-outline" size={20} color="#fff" />
-                </TouchableOpacity>
-
-                <View style={styles.dividerRow}>
-                    <View style={styles.divider} />
-                    <ThemedText style={styles.dividerText}>or</ThemedText>
-                    <View style={styles.divider} />
-                </View>
-
-                <View style={styles.buttonRow}>
-                    <TouchableOpacity style={[styles.outlineButton, { flex: 1 }]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-                            <Ionicons name="chatbubble-outline" size={18} color="#fff" />
-                            <ThemedText style={styles.outlineButtonText}>Request Help</ThemedText>
-                        </View>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.outlineButton, { flex: 1 }]}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, justifyContent: 'center' }}>
-                            <Ionicons name="help-circle-outline" size={18} color="#fff" />
-                            <ThemedText style={styles.outlineButtonText}>FAQ</ThemedText>
-                        </View>
-                    </TouchableOpacity>
-                </View>
-            </View>
-
-            {/* Legal Section */}
-            <View style={styles.section}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <Ionicons name="document-text-outline" size={20} color="#fff" />
-                    <ThemedText style={styles.sectionTitle}>Legal</ThemedText>
-                </View>
-                <ThemedText style={styles.sectionSubtitle}>Terms and policies</ThemedText>
-
-                <TouchableOpacity style={styles.outlineButtonLarge} onPress={() => router.push('https://drive.google.com/drive/folders/1Q9KbF5WG6AnJjHjN2YDDFNMxmrE_0nuS?usp=drive_link')}>
-                    <ThemedText style={styles.outlineButtonText}>View Terms & Privacy Policy</ThemedText>
-                </TouchableOpacity>
-            </View>
-        </ScrollView>
-    );
-
     const renderLoggedIn = () => (
         <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-            {/* Animated Profile Avatar Section */}
-            <View style={styles.profileHeaderSection}>
+            {/* Minimalist Profile Header */}
+            <View style={[styles.profileHeaderSection, {
+                backgroundColor: themeColors.card,
+                borderColor: themeColors.border,
+                borderWidth: 1,
+                paddingHorizontal: 20,
+                paddingVertical: 24,
+                marginBottom: 24,
+                borderRadius: 24
+            }]}>
                 <View style={styles.avatarContainer}>
-                    <Animated.View style={[styles.avatarGlow, animatedGlowStyle]}>
-                        <LinearGradient
-                            colors={['#aa48b7', '#4a148c', '#aa48b7']}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={StyleSheet.absoluteFill}
-                        />
-                    </Animated.View>
-                    <View style={styles.avatarInner}>
-                        <ThemedText style={styles.avatarTextLarge}>
+                    <View style={[styles.avatarInner, { borderColor: themeColors.border, backgroundColor: themeColors.background, width: 80, height: 80, borderRadius: 40 }]}>
+                        <ThemedText style={[styles.avatarTextLarge, { fontSize: 36, color: themeColors.text }]}>
                             {(userData?.userName || 'D')[0].toUpperCase()}
                         </ThemedText>
                     </View>
-                    <View style={styles.premiumIndicator}>
-                        <Ionicons name="sparkles" size={10} color="#fff" />
-                    </View>
+                    {userData?.planType === 'Premium' && (
+                        <View style={[styles.premiumIndicator, { backgroundColor: themeColors.tint, borderColor: themeColors.background }]}>
+                            <Ionicons name="sparkles" size={12} color={themeColors.background} />
+                        </View>
+                    )}
                 </View>
 
                 <View style={styles.userInfoContainer}>
-                    <ThemedText style={styles.profileUserName}>@{userData?.userName || 'dreamer'}</ThemedText>
-                    <View style={styles.emailContainer}>
-                        <ThemedText style={styles.profileEmail}>{user?.email}</ThemedText>
-                        <View style={styles.verifiedBadge}>
-                            <Ionicons name="checkmark-circle" size={14} color="#aa48b7" />
-                        </View>
-                    </View>
+                    <ThemedText style={[styles.profileUserName, { color: themeColors.text, fontSize: 28, lineHeight: 34, paddingTop: 4 }]}>
+                        {userData?.userName || 'Dreamer'}
+                    </ThemedText>
+                    <ThemedText style={[styles.profileEmail, { color: themeColors.icon }]}>{user?.email}</ThemedText>
                 </View>
             </View>
 
-            {/* Subscription Card */}
-            <View style={styles.card}>
-                <ThemedText style={styles.cardTitle}>Subscription</ThemedText>
-                <View style={styles.creditsBar}>
-                    <Ionicons name="cloud" size={16} color="#aa48b7" />
-                    <ThemedText style={styles.creditsText}>{userData?.credits || 0} coins remaining</ThemedText>
-                </View>
-
+            {/* Subscription Section */}
+            <View style={{ marginBottom: 30 }}>
+                <ThemedText style={{ color: themeColors.icon, fontSize: 13, textTransform: 'uppercase', marginBottom: 8, letterSpacing: 1 }}>Subscription</ThemedText>
                 {userData?.planType === 'Premium' ? (
-                    <View style={[styles.planCard, { borderColor: '#aa48b7', backgroundColor: '#1a0d11' }]}>
-                        <View style={{ flex: 1 }}>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                                <View style={[styles.activeDot, { backgroundColor: '#aa48b7' }]} />
-                                <ThemedText style={styles.itemTitle}>Premium Member</ThemedText>
+                    <View style={[styles.itemCard, { backgroundColor: themeColors.card, borderColor: themeColors.tint }]}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                            <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: themeColors.tint, alignItems: 'center', justifyContent: 'center' }}>
+                                <Ionicons name="diamond" size={16} color={themeColors.background} />
                             </View>
-                            <ThemedText style={[styles.itemSubtitle, { maxWidth: '90%' }]}>
-                                Active • Renews monthly
-                            </ThemedText>
+                            <View>
+                                <ThemedText style={{ color: themeColors.text, fontWeight: '600' }}>Premium Active</ThemedText>
+                                <ThemedText style={{ color: themeColors.icon, fontSize: 12 }}>Unlimited Access</ThemedText>
+                            </View>
                         </View>
-                        <TouchableOpacity
-                            style={styles.manageButton}
-                            onPress={() => Linking.openURL(Platform.OS === 'ios' ? 'https://apps.apple.com/account/subscriptions' : 'https://play.google.com/store/account/subscriptions')}
-                        >
-                            <ThemedText style={styles.manageButtonText}>Manage</ThemedText>
+                        <TouchableOpacity onPress={() => Linking.openURL(Platform.OS === 'ios' ? 'https://apps.apple.com/account/subscriptions' : 'https://play.google.com/store/account/subscriptions')}>
+                            <ThemedText style={{ color: themeColors.tint, fontWeight: '600', fontSize: 14 }}>Manage</ThemedText>
                         </TouchableOpacity>
                     </View>
                 ) : (
-                    <View style={styles.planCard}>
-                        <View>
-                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                                <View style={styles.activeDot} />
-                                <ThemedText style={styles.itemTitle}>{userData?.planType || 'Free'} Plan</ThemedText>
+                    <View style={{ gap: 12 }}>
+                        <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: themeColors.card, borderRadius: 12, borderWidth: 1, borderColor: themeColors.border }}>
+                            <View>
+                                <ThemedText style={{ color: themeColors.text, fontWeight: '600', fontSize: 16 }}>Free Plan</ThemedText>
+                                <ThemedText style={{ color: themeColors.icon, fontSize: 12 }}>Upgrade for unlimited power</ThemedText>
                             </View>
-                            <ThemedText style={[styles.itemSubtitle, { maxWidth: '70%' }]}>
-                                Upgrade to get unlimited messages and more coins.
-                            </ThemedText>
+                            <TouchableOpacity style={{ backgroundColor: themeColors.text, paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20 }} onPress={presentPaywall}>
+                                <ThemedText style={{ color: themeColors.background, fontWeight: '600', fontSize: 14 }}>Upgrade</ThemedText>
+                            </TouchableOpacity>
                         </View>
-                        <TouchableOpacity style={styles.upgradeButton} onPress={presentPaywall}>
-                            <Ionicons name="diamond" size={14} color="#fff" />
-                            <ThemedText style={styles.upgradeButtonText}>Upgrade</ThemedText>
+
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, paddingHorizontal: 4 }}>
+                            <Ionicons name="gift-outline" size={20} color={themeColors.tint} />
+                            <View style={{ flex: 1 }}>
+                                <ThemedText style={{ color: themeColors.text, fontWeight: '600' }}>{userData?.credits || 0} Free Trial Credits</ThemedText>
+                                <ThemedText style={{ color: themeColors.icon, fontSize: 12 }}>One-time use. Cannot be purchased.</ThemedText>
+                            </View>
+                        </View>
+
+                        <TouchableOpacity style={{ marginTop: 8, paddingHorizontal: 4 }} onPress={restorePurchases}>
+                            <ThemedText style={{ color: themeColors.icon, fontSize: 14, textDecorationLine: 'underline' }}>Restore Purchases</ThemedText>
                         </TouchableOpacity>
                     </View>
                 )}
             </View>
 
-            {/* Payment History Section */}
-            {userData?.paymentHistory && userData.paymentHistory.length > 0 && (
-                <View style={styles.section}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                        <Ionicons name="receipt-outline" size={20} color="#fff" />
-                        <ThemedText style={styles.sectionTitle}>Payment History</ThemedText>
-                    </View>
-                    <View style={styles.paymentList}>
-                        {[...userData.paymentHistory]
-                            .sort((a, b) => {
-                                const dateA = a.date?.toDate ? a.date.toDate() : new Date(a.date);
-                                const dateB = b.date?.toDate ? b.date.toDate() : new Date(b.date);
-                                return dateB.getTime() - dateA.getTime();
-                            })
-                            .slice(0, 5) // Show only latest 5
-                            .map((payment, index) => (
-                                <View key={payment.id || index.toString()} style={styles.paymentItem}>
-                                    <View>
-                                        <ThemedText style={styles.paymentDesc}>{payment.description}</ThemedText>
-                                        <ThemedText style={styles.paymentDate}>
-                                            {payment.date ? (payment.date.toDate ? payment.date.toDate().toLocaleDateString() : new Date(payment.date).toLocaleDateString()) : 'Recent'}
-                                        </ThemedText>
-                                    </View>
-                                    <ThemedText style={styles.paymentAmount}>{payment.amount}</ThemedText>
-                                </View>
-                            ))}
-                    </View>
-                </View>
-            )}
+            {/* Configuration */}
+            <View style={{ marginBottom: 30 }}>
+                <ThemedText style={{ color: themeColors.icon, fontSize: 13, textTransform: 'uppercase', marginBottom: 8, letterSpacing: 1 }}>Configuration</ThemedText>
 
-            {/* Settings Section */}
-            <View style={styles.section}>
-                <ThemedText style={styles.sectionTitle}>Settings</ThemedText>
-                <ThemedText style={styles.sectionSubtitle}>Manage your profile and notification settings</ThemedText>
-
-                <TouchableOpacity style={styles.itemCard} onPress={() => setIsPersonaModalVisible(true)}>
-                    <View>
-                        <ThemedText style={styles.itemTitle}>Personas</ThemedText>
-                        <ThemedText style={styles.itemSubtitle}>{userData?.persona ? userData.persona : 'Create and use your personas for chats'}</ThemedText>
+                <TouchableOpacity style={[styles.settingRow, { borderBottomColor: themeColors.border }]} onPress={() => setIsPersonaModalVisible(true)}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <Ionicons name="person-circle-outline" size={22} color={themeColors.text} style={{ marginRight: 12 }} />
+                        <ThemedText style={{ flex: 1, color: themeColors.text, fontSize: 16 }}>My Personas</ThemedText>
                     </View>
-                    <Ionicons name="chevron-forward" size={20} color="#666" />
+                    <Ionicons name="chevron-forward" size={16} color={themeColors.icon} />
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.itemCard} onPress={() => setIsNotificationsModalVisible(true)}>
-                    <View>
-                        <ThemedText style={styles.itemTitle}>Notifications</ThemedText>
-                        <ThemedText style={styles.itemSubtitle}>Configure your notification preferences</ThemedText>
+                <TouchableOpacity style={[styles.settingRow, { borderBottomColor: themeColors.border }]} onPress={() => setIsNotificationsModalVisible(true)}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <Ionicons name="notifications-outline" size={22} color={themeColors.text} style={{ marginRight: 12 }} />
+                        <ThemedText style={{ flex: 1, color: themeColors.text, fontSize: 16 }}>Notifications</ThemedText>
                     </View>
-                    <Ionicons name="chevron-forward" size={20} color="#666" />
+                    {/* Switch is inside modal, just show arrow here */}
+                    <Ionicons name="chevron-forward" size={16} color={themeColors.icon} />
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.itemCard} onPress={() => setIsPreferencesModalVisible(true)}>
-                    <View>
-                        <ThemedText style={styles.itemTitle}>Preferences</ThemedText>
-                        <ThemedText style={styles.itemSubtitle}>Active messages, calls, and more</ThemedText>
+                <TouchableOpacity style={[styles.settingRow, { borderBottomColor: themeColors.border }]} onPress={() => setIsPreferencesModalVisible(true)}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <Ionicons name="options-outline" size={22} color={themeColors.text} style={{ marginRight: 12 }} />
+                        <ThemedText style={{ flex: 1, color: themeColors.text, fontSize: 16 }}>Preferences</ThemedText>
                     </View>
-                    <Ionicons name="chevron-forward" size={20} color="#666" />
+                    <Ionicons name="chevron-forward" size={16} color={themeColors.icon} />
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-                    <ThemedText style={styles.signOutButtonText}>Sign Out</ThemedText>
+                <TouchableOpacity style={[styles.settingRow, { borderBottomColor: themeColors.border }]} onPress={() => setIsRedeemCodeModalVisible(true)}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <Ionicons name="gift-outline" size={22} color={themeColors.text} style={{ marginRight: 12 }} />
+                        <ThemedText style={{ flex: 1, color: themeColors.text, fontSize: 16 }}>Redeem Code</ThemedText>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={themeColors.icon} />
                 </TouchableOpacity>
             </View>
 
-            {/* Persona Modal */}
+            {/* Support */}
+            <View style={{ marginBottom: 30 }}>
+                <ThemedText style={{ color: themeColors.icon, fontSize: 13, textTransform: 'uppercase', marginBottom: 8, letterSpacing: 1 }}>Support</ThemedText>
+
+                <TouchableOpacity
+                    style={[styles.settingRow, { borderBottomColor: themeColors.border, borderBottomWidth: 0 }]}
+                    onPress={() => Linking.openURL('mailto:azimahmed356@gmail.com')}
+                >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <Ionicons name="mail-outline" size={22} color={themeColors.text} style={{ marginRight: 12 }} />
+                        <View style={{ flex: 1 }}>
+                            <ThemedText style={{ color: themeColors.text, fontSize: 16 }}>Contact Support</ThemedText>
+                            <ThemedText style={{ color: themeColors.icon, fontSize: 12 }}>azimahmed356@gmail.com</ThemedText>
+                        </View>
+                    </View>
+                    <Ionicons name="chevron-forward" size={16} color={themeColors.icon} />
+                </TouchableOpacity>
+            </View>
+
+            {/* Account Actions */}
+            <View style={{ marginBottom: 40 }}>
+                <ThemedText style={{ color: themeColors.icon, fontSize: 13, textTransform: 'uppercase', marginBottom: 8, letterSpacing: 1 }}>Account</ThemedText>
+
+                {userData?.paymentHistory && userData.paymentHistory.length > 0 && (
+                    <View style={{ marginBottom: 16 }}>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, marginTop: 8 }}>
+                            <Ionicons name="receipt-outline" size={16} color={themeColors.icon} style={{ marginRight: 8 }} />
+                            <ThemedText style={{ color: themeColors.icon }}>History</ThemedText>
+                        </View>
+                        {userData.paymentHistory.slice(0, 5).map((payment: any, index: number) => (
+                            <View key={index} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderBottomWidth: index !== (userData.paymentHistory.length - 1) && index !== 4 ? 1 : 0, borderBottomColor: themeColors.border }}>
+                                <View style={{ flex: 1 }}>
+                                    <ThemedText style={{ color: themeColors.text, fontSize: 14, fontWeight: '500' }}>{payment.description}</ThemedText>
+                                    <ThemedText style={{ color: themeColors.icon, fontSize: 12, marginTop: 2 }}>
+                                        {payment.date?.toDate ? payment.date.toDate().toLocaleDateString() : (payment.date ? new Date(payment.date).toLocaleDateString() : '')}
+                                    </ThemedText>
+                                </View>
+                                <ThemedText style={{ color: themeColors.text, fontWeight: '600' }}>{payment.amount}</ThemedText>
+                            </View>
+                        ))}
+                    </View>
+                )}
+
+                <TouchableOpacity style={[styles.settingRow, { borderBottomColor: themeColors.border }]} onPress={handleSignOut}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <Ionicons name="log-out-outline" size={22} color={themeColors.text} style={{ marginRight: 12 }} />
+                        <ThemedText style={{ color: themeColors.text, fontSize: 16 }}>Sign Out</ThemedText>
+                    </View>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={[styles.settingRow, { borderBottomColor: themeColors.border, borderBottomWidth: 0 }]} onPress={handleDeleteAccount}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <Ionicons name="trash-outline" size={22} color="#ff4444" style={{ marginRight: 12 }} />
+                        <ThemedText style={{ color: '#ff4444', fontSize: 16 }}>Delete Account</ThemedText>
+                    </View>
+                </TouchableOpacity>
+            </View>
+
+            {/* Persona Bottom Sheet */}
             <Modal
                 visible={isPersonaModalVisible}
                 transparent={true}
-                animationType="fade"
+                animationType="slide"
                 onRequestClose={() => setIsPersonaModalVisible(false)}
             >
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <ThemedText style={styles.modalTitle}>Update Persona</ThemedText>
-                        <ThemedText style={styles.settingDesc}>This helps coaches to guide you better</ThemedText>
-                        <TextInput
-                            style={styles.modalInput}
-                            placeholder="Enter your persona..."
-                            placeholderTextColor="#666"
-                            value={personaText}
-                            onChangeText={setPersonaText}
-                            multiline
-                        />
-                        <View style={styles.modalButtons}>
-                            <TouchableOpacity style={styles.modalCancelButton} onPress={() => setIsPersonaModalVisible(false)}>
-                                <ThemedText style={styles.modalCancelText}>Cancel</ThemedText>
-                            </TouchableOpacity>
-                            <TouchableOpacity style={styles.modalSaveButton} onPress={handleSavePersona} disabled={isSaving}>
-                                {isSaving ? <ActivityIndicator color="#fff" size="small" /> : <ThemedText style={styles.modalSaveText}>Save</ThemedText>}
-                            </TouchableOpacity>
-                        </View>
-                    </View>
+                <View
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    style={{ flex: 1 }}
+                >
+                    <TouchableOpacity
+                        style={[styles.modalOverlay, { justifyContent: 'flex-end', padding: 0 }]}
+                        activeOpacity={1}
+                        onPress={() => setIsPersonaModalVisible(false)}
+                    >
+                        <TouchableOpacity
+                            activeOpacity={1}
+                            style={[styles.modalContent, {
+                                backgroundColor: themeColors.card,
+                                borderTopLeftRadius: 32,
+                                borderTopRightRadius: 32,
+                                borderBottomLeftRadius: 0,
+                                borderBottomRightRadius: 0,
+                                padding: 24,
+                                paddingBottom: Platform.OS === 'ios' ? 40 : 24,
+                                borderWidth: 0,
+                                borderTopWidth: 1,
+                                borderColor: themeColors.border,
+                                maxWidth: '100%',
+                                height: '95%'
+                            }]}
+                        >
+                            <View style={{ width: 40, height: 4, backgroundColor: themeColors.border, borderRadius: 2, alignSelf: 'center', marginBottom: 20 }} />
+
+                            <ThemedText style={[styles.modalTitle, { color: themeColors.text, textAlign: 'left', fontSize: 24, marginBottom: 12 }]}>My Persona</ThemedText>
+
+                            <ScrollView bounces={false} showsVerticalScrollIndicator={false}>
+                                <View style={{ backgroundColor: themeColors.background, padding: 16, borderRadius: 16, marginBottom: 20 }}>
+                                    <ThemedText style={{ color: themeColors.icon, fontSize: 13, lineHeight: 18 }}>
+                                        Tell us about yourself so our AI coaches can tailor their advice and personality to your specific needs.
+                                    </ThemedText>
+                                </View>
+
+                                <TextInput
+                                    style={[styles.modalInput, {
+                                        backgroundColor: themeColors.background,
+                                        color: themeColors.text,
+                                        borderColor: themeColors.border,
+                                        borderRadius: 16,
+                                        minHeight: 120,
+                                        padding: 16,
+                                        fontSize: 15
+                                    }]}
+                                    placeholder="e.g. I am a professional athlete..."
+                                    placeholderTextColor={themeColors.placeholder}
+                                    value={personaText}
+                                    onChangeText={setPersonaText}
+                                    multiline
+                                    maxLength={500}
+                                />
+
+                                <View style={[styles.modalButtons, { marginTop: 20 }]}>
+                                    <TouchableOpacity style={[styles.modalCancelButton, { backgroundColor: themeColors.border, height: 50, justifyContent: 'center' }]} onPress={() => setIsPersonaModalVisible(false)}>
+                                        <ThemedText style={[styles.modalCancelText, { color: themeColors.text }]}>Cancel</ThemedText>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.modalSaveButton, { backgroundColor: themeColors.text, borderRadius: 25, height: 50, justifyContent: 'center' }]} onPress={handleSavePersona} disabled={isSaving}>
+                                        {isSaving ? <ActivityIndicator color={themeColors.background} size="small" /> : <ThemedText style={[styles.modalSaveText, { color: themeColors.background }]}>Update</ThemedText>}
+                                    </TouchableOpacity>
+                                </View>
+                            </ScrollView>
+                        </TouchableOpacity>
+                    </TouchableOpacity>
                 </View>
             </Modal>
 
-            {/* Notifications Modal */}
             <Modal
                 visible={isNotificationsModalVisible}
                 transparent={true}
@@ -457,31 +431,31 @@ export default function ProfileScreen() {
                 onRequestClose={() => setIsNotificationsModalVisible(false)}
             >
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <ThemedText style={styles.modalTitle}>Notifications</ThemedText>
-                            <TouchableOpacity onPress={() => setIsNotificationsModalVisible(false)}>
-                                <Ionicons name="close" size={24} color="#fff" />
-                            </TouchableOpacity>
+                    <View style={[styles.modalContent, { backgroundColor: themeColors.card, borderColor: 'transparent', borderWidth: 0, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 10 }]}>
+                        <View style={[styles.modalHeader, { marginBottom: 10, justifyContent: 'center' }]}>
+                            <ThemedText style={[styles.modalTitle, { color: themeColors.text }]}>Notifications</ThemedText>
                         </View>
 
-                        <View style={styles.settingRow}>
-                            <View>
-                                <ThemedText style={styles.settingLabel}>Push Notifications</ThemedText>
-                                <ThemedText style={styles.settingDesc}>Receive alerts and updates</ThemedText>
+                        <View style={[styles.settingRow, { borderBottomWidth: 0 }]}>
+                            <View style={{ flex: 1 }}>
+                                <ThemedText style={[styles.settingLabel, { color: themeColors.text }]}>Push Notifications</ThemedText>
+                                <ThemedText style={[styles.settingDesc, { color: themeColors.icon }]}>Receive alerts and updates</ThemedText>
                             </View>
                             <Switch
                                 value={userData?.notifications ?? true}
                                 onValueChange={toggleNotification}
-                                trackColor={{ false: '#333', true: '#aa48b7' }}
-                                thumbColor={userData?.notifications ? '#fff' : '#f4f3f4'}
+                                trackColor={{ false: themeColors.border, true: themeColors.text }}
+                                thumbColor={userData?.notifications ? (colorScheme === 'dark' ? '#000' : '#fff') : '#f4f3f4'}
                             />
                         </View>
+
+                        <TouchableOpacity style={{ marginTop: 20, padding: 15, alignItems: 'center' }} onPress={() => setIsNotificationsModalVisible(false)}>
+                            <ThemedText style={{ color: themeColors.text, fontWeight: '600' }}>Close</ThemedText>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
 
-            {/* Preferences Modal */}
             <Modal
                 visible={isPreferencesModalVisible}
                 transparent={true}
@@ -489,110 +463,168 @@ export default function ProfileScreen() {
                 onRequestClose={() => setIsPreferencesModalVisible(false)}
             >
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <ThemedText style={styles.modalTitle}>Preferences</ThemedText>
-                            <TouchableOpacity onPress={() => setIsPreferencesModalVisible(false)}>
-                                <Ionicons name="close" size={24} color="#fff" />
-                            </TouchableOpacity>
+                    <View style={[styles.modalContent, { backgroundColor: themeColors.card, borderColor: 'transparent', borderWidth: 0, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 10 }]}>
+                        <View style={[styles.modalHeader, { marginBottom: 10, justifyContent: 'center' }]}>
+                            <ThemedText style={[styles.modalTitle, { color: themeColors.text }]}>Preferences</ThemedText>
                         </View>
 
-                        <View style={styles.settingRow}>
-                            <View>
-                                <ThemedText style={styles.settingLabel}>Active Messaging</ThemedText>
-                                <ThemedText style={styles.settingDesc}>Enable real-time chat</ThemedText>
+                        <View style={[styles.settingRow, { borderBottomWidth: 1, borderBottomColor: themeColors.border }]}>
+                            <View style={{ flex: 1 }}>
+                                <ThemedText style={[styles.settingLabel, { color: themeColors.text }]}>Active Messaging</ThemedText>
+                                <ThemedText style={[styles.settingDesc, { color: themeColors.icon }]}>Enable real-time chat</ThemedText>
                             </View>
                             <Switch
                                 value={userData?.active_messaging ?? true}
                                 onValueChange={(val) => togglePreference('active_messaging', val)}
-                                trackColor={{ false: '#333', true: '#aa48b7' }}
-                                thumbColor={userData?.active_messaging ? '#fff' : '#f4f3f4'}
+                                trackColor={{ false: themeColors.border, true: themeColors.text }}
+                                thumbColor={userData?.active_messaging ? (colorScheme === 'dark' ? '#000' : '#fff') : '#f4f3f4'}
                             />
                         </View>
 
-                        <View style={styles.settingRow}>
-                            <View>
-                                <ThemedText style={styles.settingLabel}>AI Calls</ThemedText>
-                                <ThemedText style={styles.settingDesc}>Allow voice interaction</ThemedText>
+                        <View style={[styles.settingRow, { borderBottomWidth: 0 }]}>
+                            <View style={{ flex: 1 }}>
+                                <ThemedText style={[styles.settingLabel, { color: themeColors.text }]}>AI Calls</ThemedText>
+                                <ThemedText style={[styles.settingDesc, { color: themeColors.icon }]}>Allow voice interaction</ThemedText>
                             </View>
                             <Switch
                                 value={userData?.calls ?? true}
                                 onValueChange={(val) => togglePreference('calls', val)}
-                                trackColor={{ false: '#333', true: '#aa48b7' }}
-                                thumbColor={userData?.calls ? '#fff' : '#f4f3f4'}
+                                trackColor={{ false: themeColors.border, true: themeColors.text }}
+                                thumbColor={userData?.calls ? (colorScheme === 'dark' ? '#000' : '#fff') : '#f4f3f4'}
                             />
                         </View>
+
+                        <TouchableOpacity style={{ marginTop: 20, padding: 15, alignItems: 'center' }} onPress={() => setIsPreferencesModalVisible(false)}>
+                            <ThemedText style={{ color: themeColors.text, fontWeight: '600' }}>Close</ThemedText>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
 
-            {/* Redeem Code Section */}
-            <View style={styles.section}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <Ionicons name="gift-outline" size={20} color="#fff" />
-                    <ThemedText style={styles.sectionTitle}>Redeem Code</ThemedText>
-                </View>
-                <ThemedText style={styles.sectionSubtitle}>
-                    Have a promo code? Redeem it for a subscription or coins!
-                </ThemedText>
-                <View style={styles.inputRow}>
-                    <TextInput
-                        style={styles.textInput}
-                        placeholder="Enter your code"
-                        placeholderTextColor="#555"
-                        value={redeemCode}
-                        onChangeText={setRedeemCode}
-                        autoCapitalize="characters"
-                        autoCorrect={false}
-                        returnKeyType="done"
-                        onSubmitEditing={handleRedeemCode}
-                        editable={!isRedeeming}
-                    />
-                    <TouchableOpacity
-                        style={[styles.submitButton, isRedeeming && styles.submitButtonDisabled]}
-                        onPress={handleRedeemCode}
-                        disabled={isRedeeming || !redeemCode.trim()}
-                    >
-                        <ThemedText style={styles.applyButtonText}>
-                            {isRedeeming ? 'Redeeming...' : 'Submit'}
+            {/* Redeem Code Modal - Minimalist */}
+            <Modal
+                visible={isRedeemCodeModalVisible}
+                transparent={true}
+                animationType="fade"
+                onRequestClose={() => setIsRedeemCodeModalVisible(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, { backgroundColor: themeColors.card, borderColor: 'transparent', borderWidth: 0, shadowColor: "#000", shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.3, shadowRadius: 20, elevation: 10 }]}>
+                        <ThemedText style={[styles.modalTitle, { color: themeColors.text, textAlign: 'center', marginBottom: 8 }]}>Redeem Code</ThemedText>
+                        <ThemedText style={[styles.settingDesc, { color: themeColors.icon, textAlign: 'center' }]}>
+                            Have a promo code? Redeem it here.
                         </ThemedText>
+
+                        <TextInput
+                            style={[styles.textInput, { color: themeColors.text, backgroundColor: themeColors.background, borderColor: themeColors.border, borderRadius: 12, marginTop: 20, marginBottom: 20, height: 50, flex: 0 }]}
+                            placeholder="Enter Code"
+                            placeholderTextColor={themeColors.placeholder}
+                            value={redeemCode}
+                            onChangeText={setRedeemCode}
+                            autoCapitalize="characters"
+                            autoCorrect={false}
+                            returnKeyType="done"
+                            onSubmitEditing={handleRedeemCode}
+                            editable={!isRedeeming}
+                        />
+
+                        <View style={styles.modalButtons}>
+                            <TouchableOpacity style={[styles.modalCancelButton, { backgroundColor: 'transparent' }]} onPress={() => setIsRedeemCodeModalVisible(false)}>
+                                <ThemedText style={[styles.modalCancelText, { color: themeColors.text }]}>Cancel</ThemedText>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={[styles.modalSaveButton, { backgroundColor: themeColors.text, borderRadius: 25 }]} onPress={handleRedeemCode} disabled={isRedeeming || !redeemCode.trim()}>
+                                <ThemedText style={[styles.modalSaveText, { color: themeColors.background }]}>
+                                    {isRedeeming ? 'Redeeming...' : 'Redeem'}
+                                </ThemedText>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+        </ScrollView>
+    );
+
+    const renderNotLoggedIn = () => (
+        <ScrollView style={[styles.scroll, { backgroundColor: themeColors.background }]} contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            {/* Get Started Card */}
+            <View style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                <ThemedText style={[styles.cardTitle, { color: themeColors.text }]}>Get Started</ThemedText>
+                <ThemedText style={[styles.cardSubtitle, { color: themeColors.icon }]}>Sign up to get 50 free credits</ThemedText>
+
+                <View style={styles.promoContainer}>
+                    <ThemedText style={[styles.promoTextBold, { color: themeColors.text }]}>Create a free account and get 50 credits!</ThemedText>
+
+                    <View style={styles.benefitItem}>
+                        <Ionicons name="checkmark-circle-outline" size={18} color={themeColors.text} />
+                        <ThemedText style={[styles.benefitText, { color: themeColors.icon }]}>50 free credits upon signup</ThemedText>
+                    </View>
+                    <View style={styles.benefitItem}>
+                        <Ionicons name="checkmark-circle-outline" size={18} color={themeColors.text} />
+                        <ThemedText style={[styles.benefitText, { color: themeColors.icon }]}>No credit card required</ThemedText>
+                    </View>
+                </View>
+
+                <View style={styles.buttonRow}>
+                    <TouchableOpacity style={[styles.primaryButton, { backgroundColor: themeColors.text }]} onPress={() => openAuthModal('signup')}>
+                        <ThemedText style={[styles.primaryButtonText, { color: themeColors.background }]}>Sign Up Now</ThemedText>
+                    </TouchableOpacity>
+                    <TouchableOpacity style={[styles.outlineButton, { borderColor: themeColors.text }]} onPress={() => openAuthModal('login')}>
+                        <ThemedText style={[styles.outlineButtonText, { color: themeColors.text }]}>Login</ThemedText>
                     </TouchableOpacity>
                 </View>
             </View>
 
-            {/* Legal & Danger Zone */}
+            {/* Support Section */}
             <View style={styles.section}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <Ionicons name="document-text-outline" size={20} color="#fff" />
-                    <ThemedText style={styles.sectionTitle}>Legal</ThemedText>
-                </View>
-                <ThemedText style={styles.sectionSubtitle}>Terms and policies</ThemedText>
-                <TouchableOpacity style={styles.outlineButtonLarge} onPress={() => router.push('https://drive.google.com/drive/folders/1Q9KbF5WG6AnJjHjN2YDDFNMxmrE_0nuS?usp=drive_link')}>
-                    <ThemedText style={styles.outlineButtonText}>View Terms & Privacy Policy</ThemedText>
+                <ThemedText style={[styles.sectionTitle, { color: themeColors.text }]}>Support</ThemedText>
+                <ThemedText style={[styles.sectionSubtitle, { color: themeColors.icon }]}>We are here to help</ThemedText>
+
+                <TouchableOpacity
+                    style={[styles.itemCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+                    onPress={() => Linking.openURL('mailto:azimahmed356@gmail.com')}
+                >
+                    <View>
+                        <ThemedText style={[styles.itemTitle, { color: themeColors.text }]}>Contact Support</ThemedText>
+                        <ThemedText style={[styles.itemSubtitle, { color: themeColors.icon }]}>azimahmed356@gmail.com</ThemedText>
+                    </View>
+                    <Ionicons name="mail-outline" size={24} color={themeColors.text} />
                 </TouchableOpacity>
             </View>
 
-            <View style={[styles.section, styles.dangerZone]}>
+            {/* Legal Section */}
+            <View style={styles.section}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                    <Ionicons name="warning-outline" size={20} color="#ff4444" />
-                    <ThemedText style={[styles.sectionTitle, { color: '#ff4444' }]}>Danger Zone</ThemedText>
+                    <Ionicons name="document-text-outline" size={20} color={themeColors.text} />
+                    <ThemedText style={[styles.sectionTitle, { color: themeColors.text }]}>Legal</ThemedText>
                 </View>
-                <ThemedText style={styles.sectionSubtitle}>Irreversible account actions</ThemedText>
-                <TouchableOpacity
-                    style={styles.deleteButton}
-                    onPress={handleDeleteAccount}
-                    activeOpacity={0.7}
-                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
-                >
-                    <ThemedText style={styles.applyButtonText}>Delete Account</ThemedText>
-                </TouchableOpacity>
+                <ThemedText style={[styles.sectionSubtitle, { color: themeColors.icon }]}>Terms and policies</ThemedText>
+
+                <View style={{ gap: 12 }}>
+                    <TouchableOpacity
+                        style={[styles.outlineButtonLarge, { backgroundColor: themeColors.card, borderColor: themeColors.border, marginTop: 8 }]}
+                        onPress={() => Linking.openURL('https://zonix-ai.vercel.app/#/terms')}
+                    >
+                        <ThemedText style={[styles.outlineButtonText, { color: themeColors.text }]}>Terms & Conditions</ThemedText>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.outlineButtonLarge, { backgroundColor: themeColors.card, borderColor: themeColors.border, marginTop: 0 }]}
+                        onPress={() => Linking.openURL('https://zonix-ai.vercel.app/#/privacy')}
+                    >
+                        <ThemedText style={[styles.outlineButtonText, { color: themeColors.text }]}>Privacy Policy</ThemedText>
+                    </TouchableOpacity>
+                </View>
             </View>
         </ScrollView>
     );
 
     return (
         <SafeAreaView style={styles.container} edges={['top']}>
-            <Header />
+            <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 10 }}>
+                <TouchableOpacity onPress={() => router.back()} style={{ padding: 8 }}>
+                    <Ionicons name="arrow-back" size={24} color={themeColors.text} />
+                </TouchableOpacity>
+            </View>
             {user ? renderLoggedIn() : renderNotLoggedIn()}
 
             <AuthModal
@@ -607,7 +639,6 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0a0a0a',
     },
     scroll: {
         flex: 1,
@@ -1032,6 +1063,7 @@ const styles = StyleSheet.create({
         color: '#fff',
         marginBottom: 4,
         fontFamily: Fonts.bold,
+        lineHeight: 28,
     },
     emailContainer: {
         flexDirection: 'row',
@@ -1047,14 +1079,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     textInput: {
-        backgroundColor: '#1a1a1a',
         paddingVertical: 14,
         paddingHorizontal: 16,
         borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#222',
         flex: 1,
-        color: '#fff',
         fontSize: 14,
         fontFamily: Fonts.body,
     },
@@ -1086,20 +1115,16 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: 20,
         fontWeight: 'bold',
-        color: '#fff',
         fontFamily: Fonts.bold,
     },
     modalInput: {
-        backgroundColor: '#0a0a0a',
         borderRadius: 16,
         padding: 16,
-        color: '#fff',
         fontSize: 16,
         minHeight: 120,
         textAlignVertical: 'top',
         marginBottom: 24,
         borderWidth: 1,
-        borderColor: '#333',
         fontFamily: Fonts.body,
     },
     modalButtons: {
@@ -1111,10 +1136,8 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         alignItems: 'center',
         borderRadius: 14,
-        backgroundColor: '#222',
     },
     modalCancelText: {
-        color: '#aaa',
         fontWeight: '600',
         fontFamily: Fonts.regular,
     },
@@ -1123,10 +1146,8 @@ const styles = StyleSheet.create({
         paddingVertical: 14,
         alignItems: 'center',
         borderRadius: 14,
-        backgroundColor: '#aa48b7',
     },
     modalSaveText: {
-        color: '#fff',
         fontWeight: 'bold',
         fontFamily: Fonts.bold,
     },
@@ -1136,18 +1157,15 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 16,
         borderBottomWidth: 1,
-        borderBottomColor: '#1a1a1a',
     },
     settingLabel: {
         fontSize: 16,
         fontWeight: '600',
-        color: '#fff',
         marginBottom: 2,
         fontFamily: Fonts.regular,
     },
     settingDesc: {
         fontSize: 13,
-        color: '#666',
         fontFamily: Fonts.body,
     },
 });

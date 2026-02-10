@@ -127,21 +127,20 @@ exports.handleRevenueCatEvent = functions.firestore.document('revenuecat_events/
                 };
 
                 transaction.update(userRef, {
-                    credits: admin.firestore.FieldValue.increment(1000),
                     planType: 'Premium',
                     paymentHistory: admin.firestore.FieldValue.arrayUnion(newPayment),
                     lastPurchaseAt: admin.firestore.FieldValue.serverTimestamp(),
                     updatedAt: admin.firestore.FieldValue.serverTimestamp()
                 });
 
-                console.log(`Successfully granted 1000 credits to user ${app_user_id}`);
+                console.log(`Successfully updated plan to Premium for user ${app_user_id}`);
 
                 // Send Push Notification if enabled
                 if (fcmToken && notificationsEnabled) {
                     const message = {
                         notification: {
                             title: 'Premium Activated! 💎',
-                            body: 'Your subscription is active and 1,000 credits have been added to your account. Enjoy Zonix Pro!',
+                            body: 'Your subscription is active. Enjoy unlimited access to Zonix Pro!',
                         },
                         token: fcmToken,
                         android: {
@@ -154,7 +153,7 @@ exports.handleRevenueCatEvent = functions.firestore.document('revenuecat_events/
                                 aps: {
                                     alert: {
                                         title: 'Premium Activated! 💎',
-                                        body: 'Your subscription is active and 1,000 credits have been added to your account. Enjoy Zonix Pro!',
+                                        body: 'Your subscription is active. Enjoy unlimited access to Zonix Pro!',
                                     },
                                     badge: 1,
                                     sound: 'default'
@@ -316,7 +315,7 @@ exports.onUserPlanUpgrade = functions.firestore.document('users/{userId}').onUpd
                 token: fcmToken,
                 notification: {
                     title: 'Premium Activated! 💎',
-                    body: 'Your subscription is active and 1,000 credits have been added. Enjoy!',
+                    body: 'Your subscription is active. Enjoy unlimited access to Zonix Pro!',
                 },
                 android: {
                     priority: 'high',
@@ -330,7 +329,7 @@ exports.onUserPlanUpgrade = functions.firestore.document('users/{userId}').onUpd
                         aps: {
                             alert: {
                                 title: 'Premium Activated! 💎',
-                                body: 'Your subscription is active and 1,000 credits have been added. Enjoy!',
+                                body: 'Your subscription is active. Enjoy unlimited access to Zonix Pro!',
                             },
                             sound: 'default',
                             badge: 1,
@@ -395,9 +394,9 @@ exports.createCoach = functions.runWith({ secrets: ['OPENAI_API_KEY'] }).https.o
             const userData = userDoc.data();
             const currentCredits = userData.credits || 0;
 
-            // 3. Check for sufficient credits
-            if (currentCredits < 5) {
-                throw new functions.https.HttpsError('failed-precondition', 'Insufficient credits. Creating a coach costs 5 credits.');
+            // 3. Check for Premium Plan
+            if (userData.planType !== 'Premium') {
+                throw new functions.https.HttpsError('permission-denied', 'You must be a Premium member to create AI Coaches.');
             }
 
             // 4. Create the Coach Document
@@ -432,18 +431,11 @@ exports.createCoach = functions.runWith({ secrets: ['OPENAI_API_KEY'] }).https.o
 
             transaction.set(coachRef, coachData);
 
-            // 5. Deduct Credits
-            transaction.update(userRef, {
-                credits: admin.firestore.FieldValue.increment(-5),
-                updatedAt: admin.firestore.FieldValue.serverTimestamp()
-            });
-
-            console.log(`Successfully created coach ${coachRef.id} and deducted 5 credits from user ${uid}.`);
+            console.log(`Successfully created coach ${coachRef.id} for Premium user ${uid}.`);
 
             return {
                 success: true,
-                coachId: coachRef.id,
-                remainingCredits: currentCredits - 5
+                coachId: coachRef.id
             };
         });
 
@@ -727,7 +719,48 @@ exports.onNewMessage = functions.runWith({
     const conversationData = conversationDoc.data();
     const coachId = conversationData.coachId;
     const userId = conversationData.userId;
+    // 3. Fetch User Data to check Credits
+    const userRef = db.collection('users').doc(userId);
+    const userDoc = await userRef.get();
+    if (!userDoc.exists) {
+        console.error(`User ${userId} not found. Skipping.`);
+        return null;
+    }
+    const userData = userDoc.data();
 
+    // 4. Credit Logic for non-Premium users
+    const isPremium = userData.planType === 'Premium';
+    if (!isPremium) {
+        const currentCredits = userData.credits || 0;
+        if (currentCredits < 1) {
+            console.log(`User ${userId} is out of credits. Sending notification message.`);
+
+            // Add a system-style response to inform them they are out of credits
+            await convRef.collection('messages').add({
+                role: 'assistant',
+                content: "You are out of coins. 🪙 Upgrade to Premium for UNLIMITED messaging or earn more coins to continue chatting.",
+                createdAt: admin.firestore.FieldValue.serverTimestamp(),
+                userId: userId,
+                isSystem: true // UI can handle this differently if needed
+            });
+
+            // Update conversation to show this as last activity
+            await convRef.update({
+                lastMessageAt: admin.firestore.FieldValue.serverTimestamp()
+            });
+
+            return null;
+        }
+
+        // Deduct 1 credit
+        await userRef.update({
+            credits: admin.firestore.FieldValue.increment(-1),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+        console.log(`Deducted 1 credit from User ${userId}. Remaining: ${currentCredits - 1}`);
+    }
+
+    // 5. Fetch Coach Data
     const coachDoc = await db.collection('coaches').doc(coachId).get();
     if (!coachDoc.exists) {
         console.error(`Coach ${coachId} not found.`);
@@ -735,7 +768,7 @@ exports.onNewMessage = functions.runWith({
     }
     const coachData = coachDoc.data();
 
-    // 3. Initialize OpenAI
+    // 6. Initialize OpenAI
     const { OpenAI } = require('openai');
     const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
 
@@ -825,6 +858,12 @@ ${contextText || "No context found."}
             tokenUsageTotal: admin.firestore.FieldValue.increment(usage.total_tokens)
         });
 
+        // 9. Update Coach Stats (Chats)
+        await db.collection('coaches').doc(coachId).update({
+            'stats.chats': admin.firestore.FieldValue.increment(1),
+            updatedAt: admin.firestore.FieldValue.serverTimestamp()
+        });
+
         console.log(`[Chat] Response sent. Tokens: ${usage.total_tokens}`);
 
     } catch (error) {
@@ -845,3 +884,73 @@ function cosineSimilarity(vecA, vecB) {
     }
     return dotProduct / (Math.sqrt(magnitudeA) * Math.sqrt(magnitudeB));
 }
+
+/**
+ * Callable function to toggle like status for a coach.
+ * Handles updating the like count and the likedBy array atomically.
+ */
+exports.toggleLike = functions.https.onCall(async (data, context) => {
+    // 1. Ensure user is authenticated
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated to like coaches.');
+    }
+
+    const uid = context.auth.uid;
+    const { coachId } = data;
+
+    if (!coachId) {
+        throw new functions.https.HttpsError('invalid-argument', 'Missing coachId.');
+    }
+
+    const coachRef = admin.firestore().collection('coaches').doc(coachId);
+
+    try {
+        const result = await admin.firestore().runTransaction(async (transaction) => {
+            const coachDoc = await transaction.get(coachRef);
+
+            if (!coachDoc.exists) {
+                throw new functions.https.HttpsError('not-found', 'Coach not found.');
+            }
+
+            const coachData = coachDoc.data();
+            const likedBy = coachData.likedBy || [];
+            const isLiked = likedBy.includes(uid);
+
+            let newLikesCount = (coachData.stats?.likes || 0);
+
+            if (isLiked) {
+                // Unlike
+                newLikesCount = Math.max(0, newLikesCount - 1);
+                transaction.update(coachRef, {
+                    likes: admin.firestore.FieldValue.increment(-1),
+                    'stats.likes': admin.firestore.FieldValue.increment(-1),
+                    likedBy: admin.firestore.FieldValue.arrayRemove(uid),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+            } else {
+                // Like
+                newLikesCount += 1;
+                transaction.update(coachRef, {
+                    likes: admin.firestore.FieldValue.increment(1),
+                    'stats.likes': admin.firestore.FieldValue.increment(1),
+                    likedBy: admin.firestore.FieldValue.arrayUnion(uid),
+                    updatedAt: admin.firestore.FieldValue.serverTimestamp()
+                });
+            }
+
+            return {
+                success: true,
+                isLiked: !isLiked,
+                likes: newLikesCount
+            };
+        });
+
+        return result;
+    } catch (error) {
+        console.error('Error toggling like:', error);
+        if (error instanceof functions.https.HttpsError) {
+            throw error;
+        }
+        throw new functions.https.HttpsError('internal', 'An error occurred while liking the coach.');
+    }
+});

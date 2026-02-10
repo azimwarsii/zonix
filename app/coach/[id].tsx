@@ -1,10 +1,12 @@
 import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/context/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import firestore from '@react-native-firebase/firestore';
+import functions from '@react-native-firebase/functions';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
@@ -40,16 +42,27 @@ const formatNumber = (num: number | string | undefined) => {
 };
 
 export default function CoachProfileScreen() {
-    const { id } = useLocalSearchParams();
+    const { id, initialName, initialPortrait, initialSpec, initialVerified } = useLocalSearchParams();
     const router = useRouter();
     const { user } = useAuth();
-    const [coach, setCoach] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+
+    // Optimistic Data
+    const [coach, setCoach] = useState<any>(initialName ? {
+        name: initialName,
+        portraitUrl: initialPortrait,
+        specialization: initialSpec,
+        isVerified: initialVerified === 'true'
+    } : null);
+
+    const [loading, setLoading] = useState(!initialName);
     const [isLiked, setIsLiked] = useState(false);
     const [isFollowing, setIsFollowing] = useState(false);
     const [likeCount, setLikeCount] = useState(0);
     const [followCount, setFollowCount] = useState(0);
     const [chatCount, setChatCount] = useState(0);
+
+    const colorScheme = useColorScheme();
+    const themeColors = Colors[colorScheme ?? 'light'];
 
     useEffect(() => {
         const fetchCoach = async () => {
@@ -120,22 +133,21 @@ export default function CoachProfileScreen() {
         setLikeCount(prev => newStatus ? prev + 1 : prev - 1);
 
         try {
-            const coachRef = firestore().collection('coaches').doc(id as string);
-            if (newStatus) {
-                await coachRef.update({
-                    likes: firestore.FieldValue.increment(1),
-                    likedBy: firestore.FieldValue.arrayUnion(user.uid)
-                });
-            } else {
-                await coachRef.update({
-                    likes: firestore.FieldValue.increment(-1),
-                    likedBy: firestore.FieldValue.arrayRemove(user.uid)
-                });
+            const toggleLike = functions().httpsCallable('toggleLike');
+            const result = await toggleLike({ coachId: id });
+            const data = result.data as any;
+
+            if (data.success) {
+                // Sync with server truth
+                setIsLiked(data.isLiked);
+                setLikeCount(data.likes);
             }
         } catch (error) {
-            console.error('Error updating like:', error);
+            console.error('Error toggling like:', error);
+            // Revert optimistic update on error
             setIsLiked(!newStatus);
             setLikeCount(prev => !newStatus ? prev + 1 : prev - 1);
+            Alert.alert('Error', 'Failed to update like. Please try again.');
         }
     };
 
@@ -154,13 +166,13 @@ export default function CoachProfileScreen() {
             Alert.alert('Sign In', 'Please sign in to start chatting.');
             return;
         }
-        Alert.alert('Coming Soon', 'Chat functionality is under construction!');
+        router.push(`/message/${id}`);
     };
 
     if (loading) {
         return (
-            <View style={styles.centered}>
-                <ActivityIndicator size="large" color="#aa48b7" />
+            <View style={[styles.centered, { backgroundColor: themeColors.background }]}>
+                <ActivityIndicator size="large" color={themeColors.text} />
             </View>
         );
     }
@@ -168,81 +180,48 @@ export default function CoachProfileScreen() {
     if (!coach) return null;
 
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
-            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
+        <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
+            <ScrollView showsVerticalScrollIndicator={false} bounces={false} contentContainerStyle={{ paddingBottom: 100 }}>
                 {/* Header Actions */}
-                <View style={styles.header}>
-                    <TouchableOpacity style={styles.iconButton} onPress={() => router.back()}>
-                        <Ionicons name="arrow-back" size={24} color="#fff" />
+                <View style={[styles.header, { borderBottomColor: themeColors.border }]}>
+                    <TouchableOpacity
+                        style={[styles.iconButton, { backgroundColor: themeColors.card }]}
+                        onPress={() => router.back()}
+                    >
+                        <Ionicons name="arrow-back" size={24} color={themeColors.text} />
                     </TouchableOpacity>
-                    <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
-                        <Ionicons name="share-outline" size={24} color="#fff" />
+                    <TouchableOpacity
+                        style={[styles.iconButton, { backgroundColor: themeColors.card }]}
+                        onPress={handleShare}
+                    >
+                        <Ionicons name="share-outline" size={24} color={themeColors.text} />
                     </TouchableOpacity>
                 </View>
 
-                {/* Profile Image */}
-                <View style={styles.imageContainer}>
+                {/* Profile Section - Minimalist */}
+                <View style={styles.profileHeader}>
                     <Image
                         source={{ uri: coach.portraitUrl || 'https://images.unsplash.com/photo-1542385151-efd9000785a0?q=80&w=3000&auto=format&fit=crop' }}
-                        style={styles.image}
+                        style={[styles.profileImage, { borderColor: themeColors.border }]}
                         contentFit="cover"
                         transition={500}
                     />
-                    <LinearGradient
-                        colors={['transparent', 'rgba(0,0,0,0.8)', '#0a0a0a']}
-                        style={styles.gradient}
-                    />
+                    <View style={styles.profileInfo}>
+                        <View style={styles.titleRow}>
+                            <ThemedText style={[styles.name, { color: themeColors.text }]}>{coach.name}</ThemedText>
+                            {coach.isVerified && (
+                                <MaterialIcons name="verified" size={20} color={themeColors.text} />
+                            )}
+                        </View>
+                        <ThemedText style={[styles.subtitle, { color: themeColors.icon }]}>{coach.specialization}</ThemedText>
+                    </View>
                 </View>
 
-                <View style={styles.content}>
-                    <View style={styles.titleRow}>
-                        <ThemedText style={styles.name}>{coach.name}</ThemedText>
-                        {coach.isVerified && (
-                            <MaterialIcons name="verified" size={24} color="#0095f6" />
-                        )}
-                    </View>
 
-                    <ThemedText style={styles.subtitle}>{coach.specialization}</ThemedText>
-
-                    {/* Interaction Actions Row (Merged Stats & Actions) */}
-                    <View style={styles.interactionRow}>
-                        {/* Like Action */}
-                        <TouchableOpacity style={styles.interactionBtn} onPress={handleLike}>
-                            <View style={[styles.iconCircle, isLiked && { backgroundColor: 'rgba(255, 68, 68, 0.15)', borderColor: '#ff4444' }]}>
-                                <Ionicons name={isLiked ? "heart" : "heart-outline"} size={22} color={isLiked ? "#ff4444" : "#fff"} />
-                            </View>
-                            <ThemedText style={[styles.interactionValue, isLiked && { color: '#ff4444' }]}>
-                                {formatNumber(likeCount)}
-                            </ThemedText>
-                            <ThemedText style={styles.interactionLabel}>Likes</ThemedText>
-                        </TouchableOpacity>
-
-                        {/* Follow Action */}
-                        <TouchableOpacity style={styles.interactionBtn} onPress={handleFollow}>
-                            <View style={[styles.iconCircle, isFollowing && { backgroundColor: 'rgba(170, 72, 183, 0.15)', borderColor: '#aa48b7' }]}>
-                                <Ionicons name={isFollowing ? "people" : "people-outline"} size={22} color={isFollowing ? "#aa48b7" : "#fff"} />
-                            </View>
-                            <ThemedText style={[styles.interactionValue, isFollowing && { color: '#aa48b7' }]}>
-                                {formatNumber(followCount)}
-                            </ThemedText>
-                            <ThemedText style={styles.interactionLabel}>Followers</ThemedText>
-                        </TouchableOpacity>
-
-                        {/* Chat Action */}
-                        <TouchableOpacity style={styles.interactionBtn} onPress={handleChat}>
-                            <View style={styles.iconCircle}>
-                                <Ionicons name="chatbubble-ellipses-outline" size={22} color="#fff" />
-                            </View>
-                            <ThemedText style={styles.interactionValue}>
-                                {formatNumber(chatCount)}
-                            </ThemedText>
-                            <ThemedText style={styles.interactionLabel}>Chats</ThemedText>
-                        </TouchableOpacity>
-                    </View>
-
-                    <View style={styles.section}>
-                        <ThemedText style={styles.sectionTitle}>About</ThemedText>
-                        <ThemedText style={styles.description}>
+                <View style={[styles.content]}>
+                    <View style={[styles.section, { borderTopColor: themeColors.border, borderTopWidth: 1, paddingTop: 24 }]}>
+                        <ThemedText style={[styles.sectionTitle, { color: themeColors.text }]}>About</ThemedText>
+                        <ThemedText style={[styles.description, { color: themeColors.text, opacity: 0.8 }]}>
                             {coach.advanced?.whoAmI || "No description available."}
                         </ThemedText>
                     </View>
@@ -250,46 +229,73 @@ export default function CoachProfileScreen() {
                     {/* Traits / Essence */}
                     {coach.essence && (
                         <View style={styles.section}>
-                            <ThemedText style={styles.sectionTitle}>Core Essence</ThemedText>
+                            <ThemedText style={[styles.sectionTitle, { color: themeColors.text }]}>Core Essence</ThemedText>
                             <View style={styles.tagsContainer}>
                                 {Object.entries(coach.essence).map(([key, value]) => (
-                                    <View key={key} style={styles.tag}>
-                                        <ThemedText style={styles.tagLabel}>{key}: </ThemedText>
-                                        <ThemedText style={styles.tagValue}>{value as string}</ThemedText>
+                                    <View key={key} style={[styles.tag, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                                        <ThemedText style={[styles.tagLabel, { color: themeColors.icon }]}>{key}: </ThemedText>
+                                        <ThemedText style={[styles.tagValue, { color: themeColors.text }]}>{value as string}</ThemedText>
                                     </View>
                                 ))}
                             </View>
                         </View>
                     )}
 
+                    {/* Interaction Actions Row (Likes & Chats) - Moved after Essence */}
+                    <View style={styles.interactionRow}>
+                        {/* Like Action */}
+                        <TouchableOpacity
+                            style={[styles.interactionBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+                            onPress={handleLike}
+                        >
+                            <Ionicons name={isLiked ? "heart" : "heart-outline"} size={20} color={isLiked ? "#ff4444" : themeColors.text} style={{ marginBottom: 4 }} />
+                            <ThemedText style={[styles.interactionValue, { color: themeColors.text }]}>
+                                {formatNumber(likeCount)}
+                            </ThemedText>
+                            <ThemedText style={[styles.interactionLabel, { color: themeColors.icon }]}>Likes</ThemedText>
+                        </TouchableOpacity>
+
+                        {/* Chat Action */}
+                        <TouchableOpacity
+                            style={[styles.interactionBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+                            onPress={handleChat}
+                        >
+                            <Ionicons name="chatbubble-ellipses-outline" size={20} color={themeColors.text} style={{ marginBottom: 4 }} />
+                            <ThemedText style={[styles.interactionValue, { color: themeColors.text }]}>
+                                {formatNumber(chatCount)}
+                            </ThemedText>
+                            <ThemedText style={[styles.interactionLabel, { color: themeColors.icon }]}>Tap to Chat</ThemedText>
+                        </TouchableOpacity>
+                    </View>
+
                     {/* Socials Section */}
                     {coach.advanced?.socialLinks && Object.values(coach.advanced.socialLinks).some(link => link) && (
                         <View style={styles.section}>
-                            <ThemedText style={styles.sectionTitle}>Connect</ThemedText>
+                            <ThemedText style={[styles.sectionTitle, { color: themeColors.text }]}>Connect</ThemedText>
                             <View style={styles.socialsRow}>
                                 {coach.advanced.socialLinks.instagram ? (
-                                    <TouchableOpacity style={styles.socialBtn}>
-                                        <Ionicons name="logo-instagram" size={24} color="#E1306C" />
+                                    <TouchableOpacity style={[styles.socialBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                                        <Ionicons name="logo-instagram" size={20} color={themeColors.text} />
                                     </TouchableOpacity>
                                 ) : null}
                                 {coach.advanced.socialLinks.twitter ? (
-                                    <TouchableOpacity style={styles.socialBtn}>
-                                        <Ionicons name="logo-twitter" size={24} color="#1DA1F2" />
+                                    <TouchableOpacity style={[styles.socialBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                                        <Ionicons name="logo-twitter" size={20} color={themeColors.text} />
                                     </TouchableOpacity>
                                 ) : null}
                                 {coach.advanced.socialLinks.linkedin ? (
-                                    <TouchableOpacity style={styles.socialBtn}>
-                                        <Ionicons name="logo-linkedin" size={24} color="#0077B5" />
+                                    <TouchableOpacity style={[styles.socialBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                                        <Ionicons name="logo-linkedin" size={20} color={themeColors.text} />
                                     </TouchableOpacity>
                                 ) : null}
                                 {coach.advanced.socialLinks.youtube ? (
-                                    <TouchableOpacity style={styles.socialBtn}>
-                                        <Ionicons name="logo-youtube" size={24} color="#FF0000" />
+                                    <TouchableOpacity style={[styles.socialBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                                        <Ionicons name="logo-youtube" size={20} color={themeColors.text} />
                                     </TouchableOpacity>
                                 ) : null}
                                 {coach.advanced.socialLinks.tiktok ? (
-                                    <TouchableOpacity style={styles.socialBtn}>
-                                        <Ionicons name="logo-tiktok" size={24} color="#fff" />
+                                    <TouchableOpacity style={[styles.socialBtn, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                                        <Ionicons name="logo-tiktok" size={20} color={themeColors.text} />
                                     </TouchableOpacity>
                                 ) : null}
                             </View>
@@ -304,161 +310,131 @@ export default function CoachProfileScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0a0a0a',
     },
     centered: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#0a0a0a',
     },
     header: {
-        position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
         flexDirection: 'row',
         justifyContent: 'space-between',
-        padding: 20,
-        zIndex: 10,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
     },
     iconButton: {
         width: 40,
         height: 40,
         borderRadius: 20,
-        backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'center',
         alignItems: 'center',
     },
-    imageContainer: {
-        width: width,
-        height: width * 1.2, // Taller image
-        position: 'relative',
-    },
-    image: {
-        width: '100%',
-        height: '100%',
-    },
-    gradient: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        height: 250,
-    },
-    content: {
+    profileHeader: {
+        alignItems: 'center',
+        paddingVertical: 24,
         paddingHorizontal: 20,
-        marginTop: -60, // Overlap properly
+    },
+    profileImage: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        borderWidth: 1,
+        marginBottom: 16,
+    },
+    profileInfo: {
+        alignItems: 'center',
     },
     titleRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 6,
         marginBottom: 4,
     },
     name: {
-        fontSize: 32,
+        fontSize: 24,
         fontFamily: Fonts.bold,
-        color: '#fff',
-        lineHeight: 40,
+        textAlign: 'center',
     },
     subtitle: {
-        fontSize: 16,
-        color: '#aa48b7',
+        fontSize: 14,
         fontFamily: Fonts.body,
-        marginBottom: 32,
         fontWeight: '500',
+        textAlign: 'center',
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    content: {
+        paddingHorizontal: 20,
     },
     interactionRow: {
         flexDirection: 'row',
-        justifyContent: 'space-between',
+        justifyContent: 'center',
         marginBottom: 32,
-        gap: 12,
+        gap: 16,
     },
     interactionBtn: {
         flex: 1,
         alignItems: 'center',
-        backgroundColor: '#1a1a1a',
-        paddingVertical: 16,
-        borderRadius: 16,
+        paddingVertical: 12,
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#333',
-    },
-    iconCircle: {
-        width: 44,
-        height: 44,
-        borderRadius: 22,
-        backgroundColor: '#2a2a2a',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 8,
-        borderWidth: 1,
-        borderColor: 'transparent',
     },
     interactionValue: {
         fontSize: 16,
         fontFamily: Fonts.bold,
-        color: '#fff',
         marginBottom: 2,
     },
     interactionLabel: {
         fontSize: 12,
-        color: '#888',
         fontFamily: Fonts.body,
     },
     section: {
-        marginBottom: 24,
+        marginBottom: 32,
     },
     sectionTitle: {
-        fontSize: 18,
+        fontSize: 16,
         fontFamily: Fonts.bold,
-        color: '#fff',
         marginBottom: 12,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     description: {
         fontSize: 15,
-        color: '#ccc',
         lineHeight: 24,
         fontFamily: Fonts.body,
     },
     tagsContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        gap: 10,
+        gap: 8,
     },
     tag: {
         flexDirection: 'row',
-        backgroundColor: '#1a1a1a',
         paddingHorizontal: 12,
         paddingVertical: 8,
-        borderRadius: 20,
+        borderRadius: 8,
         borderWidth: 1,
-        borderColor: '#333',
     },
     tagLabel: {
-        color: '#888',
         fontSize: 12,
         fontFamily: Fonts.body,
         textTransform: 'capitalize',
     },
     tagValue: {
-        color: '#fff',
         fontSize: 12,
         fontFamily: Fonts.bold,
         textTransform: 'capitalize',
     },
     socialsRow: {
         flexDirection: 'row',
-        gap: 16,
+        gap: 12,
     },
     socialBtn: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        backgroundColor: '#1a1a1a',
+        width: 44,
+        height: 44,
+        borderRadius: 22,
         justifyContent: 'center',
         alignItems: 'center',
         borderWidth: 1,
-        borderColor: '#333',
     },
 });

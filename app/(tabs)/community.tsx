@@ -1,147 +1,328 @@
 import Header from '@/components/Header';
 import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
-import { Ionicons } from '@expo/vector-icons';
+import { useColorScheme } from '@/hooks/use-color-scheme';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import firestore from '@react-native-firebase/firestore';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useRouter } from 'expo-router';
-import { Dimensions, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Dimensions, Modal, ScrollView, StyleSheet, TouchableOpacity, TouchableWithoutFeedback, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 const { width } = Dimensions.get('window');
 
-// Mock Data
-const FEATURED_CREATORS = [
-    { id: '1', name: 'vikinghuset4...', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=viking', users: '625', likes: '5.0k' },
-    { id: '2', name: 'goonmoon', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=moon', users: '2.0k', likes: '5.8k' },
-    { id: '3', name: 'sword71', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=sword', users: '539', likes: '2.1k' },
-    { id: '4', name: 'naturallover', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=nature', users: '769', likes: '2.3k' },
-];
-
-const TOP_CREATORS = [
-    { id: '1', rank: 1, name: 'cheating0girls', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=cheat', users: '2.2k', likes: '2.9k', chats: '1.9m', tag: 'lucid' },
-    { id: '2', rank: 2, name: 'jmathersmind', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=math', users: '619', likes: '1.9k', chats: '1.8m', tag: 'rising' },
-    { id: '3', rank: 3, name: 'stepfantasy', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=step', users: '4.1k', likes: '3.8k', chats: '1.6m', tag: 'rising' },
-    { id: '4', rank: 4, name: 'serenaod', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=serena', users: '880', likes: '7.1k', chats: '1.4m', tag: 'lucid' },
-    { id: '5', rank: 5, name: 'towelie112', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=towel', users: '3.7k', likes: '8.6k', chats: '1.3m', tag: 'lucid' },
-    { id: '6', rank: 6, name: 'seilem', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=seil', users: '942', likes: '4.1k', chats: '1.2m', tag: 'lucid' },
-    { id: '7', rank: 7, name: 'anotherworldly', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=world', users: '2.5k', likes: '5.0k', chats: '1.2m', tag: 'lucid' },
-    { id: '8', rank: 8, name: 'studl3y', avatar: 'https://api.dicebear.com/7.x/avataaars/svg?seed=stud', users: '1.2k', likes: '4.1k', chats: '1.1m', tag: 'lucid' },
-];
+const formatNumber = (num: number | undefined) => {
+    if (!num) return '0';
+    if (num >= 1000000) {
+        return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'm';
+    }
+    if (num >= 1000) {
+        return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'k';
+    }
+    return num.toString();
+};
 
 export default function CommunityScreen() {
     const router = useRouter();
+    const colorScheme = useColorScheme();
+    const themeColors = Colors[colorScheme ?? 'light'];
+    const [sortBy, setSortBy] = useState<'likes' | 'chats'>('likes');
+    const [showSortModal, setShowSortModal] = useState(false);
+    const [coaches, setCoaches] = useState<any[]>([]);
+    const [loading, setLoading] = useState(true);
+    const [refreshing, setRefreshing] = useState(false);
+
+    const fetchCoaches = async () => {
+        try {
+            const snapshot = await firestore().collection('coaches').get();
+            const data = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setCoaches(data);
+        } catch (error) {
+            console.error('Error fetching coaches:', error);
+        } finally {
+            setLoading(false);
+            setRefreshing(false);
+        }
+    };
+
+    useEffect(() => {
+        fetchCoaches();
+        // Optional: Real-time listener
+        const unsubscribe = firestore().collection('coaches').onSnapshot(snapshot => {
+            const data = snapshot.docs.map(doc => ({
+                id: doc.id,
+                ...doc.data()
+            }));
+            setCoaches(data);
+            setLoading(false);
+        }, error => {
+            console.error("Real-time update error:", error);
+        });
+        return () => unsubscribe();
+    }, []);
+
+    const onRefresh = () => {
+        setRefreshing(true);
+        fetchCoaches();
+    };
+
+    const sortedCreators = [...coaches].sort((a, b) => {
+        const valA = sortBy === 'likes'
+            ? (a.stats?.likes ?? (Array.isArray(a.likedBy) ? a.likedBy.length : (a.likes || 0)))
+            : (a.stats?.chats ?? (a.chatCount || 0));
+
+        const valB = sortBy === 'likes'
+            ? (b.stats?.likes ?? (Array.isArray(b.likedBy) ? b.likedBy.length : (b.likes || 0)))
+            : (b.stats?.chats ?? (b.chatCount || 0));
+
+        return valB - valA;
+    });
+
+    // Featured: Top 5 by likes (always)
+    const featuredCreators = [...coaches].sort((a, b) => {
+        const valA = (a.stats?.likes ?? (Array.isArray(a.likedBy) ? a.likedBy.length : (a.likes || 0)));
+        const valB = (b.stats?.likes ?? (Array.isArray(b.likedBy) ? b.likedBy.length : (b.likes || 0)));
+        return valB - valA;
+    }).slice(0, 5);
+
+    if (loading) {
+        return (
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
+                <Header />
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <ActivityIndicator size="large" color={themeColors.text} />
+                </View>
+            </SafeAreaView>
+        );
+    }
+
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
             <Header />
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
 
                 {/* Featured Section */}
                 <View style={styles.sectionHeader}>
-                    <Ionicons name="star-outline" size={20} color="#ff69b4" />
-                    <ThemedText style={styles.sectionTitle}>Featured</ThemedText>
+                    <Ionicons name="star" size={18} color={themeColors.text} />
+                    <ThemedText style={[styles.sectionTitle, { color: themeColors.text }]}>Featured</ThemedText>
                 </View>
 
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.featuredList}>
-                    {FEATURED_CREATORS.map((creator) => (
-                        <TouchableOpacity
-                            key={creator.id}
-                            activeOpacity={0.9}
-                            onPress={() => router.push({ pathname: '/coach/[id]', params: { id: creator.id } })}
-                        >
-                            <View style={styles.featuredCard}>
-                                <Image source={{ uri: creator.avatar }} style={styles.featuredAvatar} />
-                                <ThemedText style={styles.featuredName} numberOfLines={1}>{creator.name}</ThemedText>
-                                <View style={styles.statsRow}>
-                                    <View style={styles.statItem}>
-                                        <Ionicons name="people-outline" size={12} color="#888" />
-                                        <ThemedText style={styles.statText}>{creator.users}</ThemedText>
-                                    </View>
-                                    <View style={styles.statItem}>
-                                        <Ionicons name="heart-outline" size={12} color="#ff69b4" />
-                                        <ThemedText style={styles.statText}>{creator.likes}</ThemedText>
+                {featuredCreators.length > 0 ? (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.featuredList}>
+                        {featuredCreators.map((creator) => (
+                            <TouchableOpacity
+                                key={creator.id}
+                                activeOpacity={0.9}
+                                onPress={() => router.push({
+                                    pathname: '/coach/[id]',
+                                    params: {
+                                        id: creator.id,
+                                        initialName: creator.name,
+                                        initialPortrait: creator.portraitUrl,
+                                        initialSpec: creator.specialization,
+                                        initialVerified: creator.isVerified ? 'true' : 'false'
+                                    }
+                                })}
+                            >
+                                <View style={[styles.featuredCard, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                                    <Image
+                                        source={{ uri: creator.portraitUrl || 'https://images.unsplash.com/photo-1542385151-efd9000785a0?q=80&w=3000&auto=format&fit=crop' }}
+                                        style={[styles.featuredAvatar, { borderColor: themeColors.border }]}
+                                    />
+                                    <ThemedText style={[styles.featuredName, { color: themeColors.text }]} numberOfLines={1}>{creator.name}</ThemedText>
+                                    <View style={styles.statsRow}>
+                                        <View style={styles.statItem}>
+                                            <Ionicons name="heart-outline" size={12} color={themeColors.icon} />
+                                            <ThemedText style={[styles.statText, { color: themeColors.icon }]}>
+                                                {formatNumber(creator.stats?.likes ?? (Array.isArray(creator.likedBy) ? creator.likedBy.length : (creator.likes || 0)))}
+                                            </ThemedText>
+                                        </View>
+                                        <View style={styles.statItem}>
+                                            <Ionicons name="chatbubble-outline" size={12} color={themeColors.icon} />
+                                            <ThemedText style={[styles.statText, { color: themeColors.icon }]}>
+                                                {formatNumber(creator.stats?.chats ?? (creator.chatCount || 0))}
+                                            </ThemedText>
+                                        </View>
                                     </View>
                                 </View>
-                            </View>
-                        </TouchableOpacity>
-                    ))}
-                </ScrollView>
+                            </TouchableOpacity>
+                        ))}
+                    </ScrollView>
+                ) : (
+                    <View style={{ paddingHorizontal: 20, marginBottom: 20 }}>
+                        <ThemedText style={{ color: themeColors.icon, fontFamily: Fonts.body }}>No featured coaches available.</ThemedText>
+                    </View>
+                )}
 
                 {/* Top Creators Content */}
                 < View style={[styles.sectionHeader, { justifyContent: 'space-between', paddingRight: 20 }]} >
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                        <Ionicons name="trophy-outline" size={20} color="#ff69b4" />
-                        <ThemedText style={styles.sectionTitle}>Top - Last 30 Days</ThemedText>
+                        <Ionicons name="analytics-outline" size={20} color={themeColors.text} />
+                        <ThemedText style={[styles.sectionTitle, { color: themeColors.text }]}>Top - By {sortBy === 'likes' ? 'Likes' : 'Chats'}</ThemedText>
                     </View>
-                    <TouchableOpacity>
-                        <Ionicons name="options-outline" size={20} color="#888" />
+                    <TouchableOpacity onPress={() => setShowSortModal(true)}>
+                        <Ionicons name="options-outline" size={20} color={themeColors.icon} />
                     </TouchableOpacity>
                 </View>
 
                 <View style={styles.topList}>
-                    {TOP_CREATORS.map((item) => (
-                        <TouchableOpacity
-                            key={item.id}
-                            activeOpacity={0.9}
-                            onPress={() => router.push({ pathname: '/coach/[id]', params: { id: item.id } })}
-                        >
-                            <View style={styles.topItem}>
-                                {/* Rank Column */}
-                                <View style={styles.rankContainer}>
-                                    {item.rank === 1 ? (
-                                        <View style={[styles.rankIconContainer, { backgroundColor: '#ff69b4' }]}>
-                                            <Ionicons name="trophy" size={16} color="#fff" />
-                                        </View>
-                                    ) : item.rank <= 3 ? (
-                                        <View style={[styles.rankIconContainer, { backgroundColor: '#ff69b4', opacity: 0.8 }]}>
-                                            <Ionicons name="medal" size={16} color="#fff" />
-                                        </View>
-                                    ) : (
-                                        <ThemedText style={styles.rankText}>#{item.rank}</ThemedText>
-                                    )}
-                                </View>
+                    {sortedCreators.map((item, index) => {
+                        const rank = index + 1;
+                        const likes = item.stats?.likes ?? (Array.isArray(item.likedBy) ? item.likedBy.length : (item.likes || 0));
+                        const chats = item.stats?.chats ?? (item.chatCount || 0);
 
-                                {/* Avatar */}
-                                <Image source={{ uri: item.avatar }} style={styles.topAvatar} />
-
-                                {/* Info Column */}
-                                <View style={styles.topInfo}>
-                                    <View style={styles.nameRow}>
-                                        <ThemedText style={styles.topName}>{item.name}</ThemedText>
-                                        {item.tag && (
-                                            <LinearGradient
-                                                colors={item.tag === 'lucid' ? ['#4a148c', '#7b1fa2'] : ['#880e4f', '#c2185b']}
-                                                start={{ x: 0, y: 0 }}
-                                                end={{ x: 1, y: 0 }}
-                                                style={styles.tagBadge}
-                                            >
-                                                {item.tag === 'lucid' && <Ionicons name="moon" size={10} color="#fff" style={{ marginRight: 2 }} />}
-                                                {item.tag === 'rising' && <Ionicons name="flame" size={10} color="#fff" style={{ marginRight: 2 }} />}
-                                                <ThemedText style={styles.tagText}>{item.tag}</ThemedText>
-                                            </LinearGradient>
+                        return (
+                            <TouchableOpacity
+                                key={item.id}
+                                activeOpacity={0.9}
+                                onPress={() => router.push({
+                                    pathname: '/coach/[id]',
+                                    params: {
+                                        id: item.id,
+                                        initialName: item.name,
+                                        initialPortrait: item.portraitUrl,
+                                        initialSpec: item.specialization,
+                                        initialVerified: item.isVerified ? 'true' : 'false'
+                                    }
+                                })}
+                            >
+                                <View style={[styles.topItem, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                                    {/* Rank Column */}
+                                    <View style={styles.rankContainer}>
+                                        {rank === 1 ? (
+                                            <View style={[styles.rankIconContainer, { backgroundColor: themeColors.text }]}>
+                                                <Ionicons name="trophy" size={14} color={themeColors.background} />
+                                            </View>
+                                        ) : rank <= 3 ? (
+                                            <View style={[styles.rankIconContainer, { backgroundColor: themeColors.icon, opacity: 0.8 }]}>
+                                                <Ionicons name="medal" size={14} color={themeColors.background} />
+                                            </View>
+                                        ) : (
+                                            <ThemedText style={[styles.rankText, { color: themeColors.icon }]}>#{rank}</ThemedText>
                                         )}
                                     </View>
-                                    <View style={styles.statsRowLarge}>
-                                        <View style={styles.statItemLarge}>
-                                            <Ionicons name="people-outline" size={14} color="#888" />
-                                            <ThemedText style={styles.statTextLarge}>{item.users}</ThemedText>
+
+                                    {/* Avatar */}
+                                    <Image
+                                        source={{ uri: item.portraitUrl || 'https://images.unsplash.com/photo-1542385151-efd9000785a0?q=80&w=3000&auto=format&fit=crop' }}
+                                        style={[styles.topAvatar, { borderColor: themeColors.border }]}
+                                    />
+
+                                    {/* Info Column */}
+                                    <View style={styles.topInfo}>
+                                        <View style={styles.nameRow}>
+                                            <ThemedText style={[styles.topName, { color: themeColors.text }]}>{item.name}</ThemedText>
+                                            {item.isVerified && (
+                                                <MaterialIcons name="verified" size={14} color={Colors.light.tint} style={{ marginRight: 4 }} />
+                                            )}
+                                            {item.specialization && (
+                                                <View style={[styles.tagBadge, { backgroundColor: themeColors.text }]}>
+                                                    <ThemedText style={[styles.tagText, { color: themeColors.background }]}>{item.specialization}</ThemedText>
+                                                </View>
+                                            )}
                                         </View>
-                                        <View style={styles.statItemLarge}>
-                                            <Ionicons name="heart-outline" size={14} color="#ff69b4" />
-                                            <ThemedText style={styles.statTextLarge}>{item.likes}</ThemedText>
-                                        </View>
-                                        <View style={styles.statItemLarge}>
-                                            <Ionicons name="chatbubble-outline" size={14} color="#00bcd4" />
-                                            <ThemedText style={styles.statTextLarge}>{item.chats}</ThemedText>
+
+                                        <ThemedText style={{ fontSize: 12, color: themeColors.icon, marginBottom: 6 }} numberOfLines={2}>
+                                            {item.advanced?.whoAmI || "AI Coach"}
+                                        </ThemedText>
+
+                                        <View style={styles.statsRowLarge}>
+                                            <View style={styles.statItemLarge}>
+                                                <Ionicons
+                                                    name="heart-outline"
+                                                    size={14}
+                                                    color={sortBy === 'likes' ? themeColors.text : themeColors.icon}
+                                                />
+                                                <ThemedText style={[styles.statTextLarge, {
+                                                    color: sortBy === 'likes' ? themeColors.text : themeColors.icon,
+                                                    fontFamily: sortBy === 'likes' ? Fonts.bold : Fonts.body
+                                                }]}>
+                                                    {formatNumber(likes)}
+                                                </ThemedText>
+                                            </View>
+                                            <View style={styles.statItemLarge}>
+                                                <Ionicons
+                                                    name="chatbubble-outline"
+                                                    size={14}
+                                                    color={sortBy === 'chats' ? themeColors.text : themeColors.icon}
+                                                />
+                                                <ThemedText style={[styles.statTextLarge, {
+                                                    color: sortBy === 'chats' ? themeColors.text : themeColors.icon,
+                                                    fontFamily: sortBy === 'chats' ? Fonts.bold : Fonts.body
+                                                }]}>
+                                                    {formatNumber(chats)}
+                                                </ThemedText>
+                                            </View>
                                         </View>
                                     </View>
                                 </View>
-                            </View>
-                        </TouchableOpacity>
-                    ))}
+                            </TouchableOpacity>
+                        );
+                    })}
                 </View>
 
             </ScrollView>
+
+            {/* Sort Modal */}
+            <Modal
+                transparent
+                visible={showSortModal}
+                animationType="fade"
+                onRequestClose={() => setShowSortModal(false)}
+            >
+                <TouchableWithoutFeedback onPress={() => setShowSortModal(false)}>
+                    <View style={styles.modalOverlay}>
+                        <View style={[styles.menuContainer, { backgroundColor: themeColors.card }]}>
+                            <ThemedText style={[styles.menuHeader, { color: themeColors.icon }]}>Sort Leaderboard By</ThemedText>
+
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={() => {
+                                    setSortBy('likes');
+                                    setShowSortModal(false);
+                                }}
+                            >
+                                <Ionicons
+                                    name={sortBy === 'likes' ? "radio-button-on" : "radio-button-off"}
+                                    size={20}
+                                    color={themeColors.text}
+                                />
+                                <ThemedText style={[
+                                    styles.menuText,
+                                    { color: themeColors.text, fontFamily: sortBy === 'likes' ? Fonts.bold : Fonts.body }
+                                ]}>
+                                    Most Liked
+                                </ThemedText>
+                            </TouchableOpacity>
+
+                            <TouchableOpacity
+                                style={styles.menuItem}
+                                onPress={() => {
+                                    setSortBy('chats');
+                                    setShowSortModal(false);
+                                }}
+                            >
+                                <Ionicons
+                                    name={sortBy === 'chats' ? "radio-button-on" : "radio-button-off"}
+                                    size={20}
+                                    color={themeColors.text}
+                                />
+                                <ThemedText style={[
+                                    styles.menuText,
+                                    { color: themeColors.text, fontFamily: sortBy === 'chats' ? Fonts.bold : Fonts.body }
+                                ]}>
+                                    Most Chats
+                                </ThemedText>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </TouchableWithoutFeedback>
+            </Modal>
         </SafeAreaView>
     );
 }
@@ -149,7 +330,6 @@ export default function CommunityScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0a0a0a',
     },
     scrollContent: {
         paddingBottom: 40,
@@ -165,7 +345,6 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         fontFamily: Fonts.bold,
-        color: '#fff',
     },
     // Featured Styles
     featuredList: {
@@ -173,14 +352,12 @@ const styles = StyleSheet.create({
         paddingBottom: 10,
     },
     featuredCard: {
-        backgroundColor: '#151515',
         borderRadius: 16,
         padding: 12,
         alignItems: 'center',
         marginHorizontal: 5,
         width: 110,
         borderWidth: 1,
-        borderColor: '#222',
         // Shadow for depth
         shadowColor: "#000",
         shadowOffset: {
@@ -197,12 +374,10 @@ const styles = StyleSheet.create({
         borderRadius: 30,
         marginBottom: 8,
         borderWidth: 2,
-        borderColor: '#333',
     },
     featuredName: {
         fontSize: 12,
         fontFamily: Fonts.bold,
-        color: '#fff',
         marginBottom: 6,
         textAlign: 'center',
     },
@@ -219,7 +394,6 @@ const styles = StyleSheet.create({
     },
     statText: {
         fontSize: 10,
-        color: '#888',
         fontFamily: Fonts.body,
     },
     // Top List Styles
@@ -229,12 +403,10 @@ const styles = StyleSheet.create({
     topItem: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#151515',
         borderRadius: 16,
         padding: 12,
         marginBottom: 10,
         borderWidth: 1,
-        borderColor: '#222',
     },
     rankContainer: {
         width: 30,
@@ -252,7 +424,6 @@ const styles = StyleSheet.create({
     rankText: {
         fontSize: 16,
         fontFamily: Fonts.bold,
-        color: '#666',
     },
     topAvatar: {
         width: 50,
@@ -260,7 +431,6 @@ const styles = StyleSheet.create({
         borderRadius: 25,
         marginRight: 12,
         borderWidth: 1,
-        borderColor: '#333',
     },
     topInfo: {
         flex: 1,
@@ -275,7 +445,6 @@ const styles = StyleSheet.create({
     topName: {
         fontSize: 15,
         fontFamily: Fonts.bold,
-        color: '#fff',
         marginRight: 8,
     },
     tagBadge: {
@@ -286,9 +455,9 @@ const styles = StyleSheet.create({
         borderRadius: 12,
     },
     tagText: {
-        fontSize: 10,
+        fontSize: 9,
         fontFamily: Fonts.bold,
-        color: '#fff',
+        textTransform: 'uppercase',
     },
     statsRowLarge: {
         flexDirection: 'row',
@@ -302,7 +471,39 @@ const styles = StyleSheet.create({
     },
     statTextLarge: {
         fontSize: 12,
-        color: '#888',
         fontFamily: Fonts.body,
+    },
+    // Modal & Menu Styles
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    menuContainer: {
+        width: '80%',
+        borderRadius: 20,
+        padding: 20,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    },
+    menuHeader: {
+        fontSize: 14,
+        fontFamily: Fonts.bold,
+        marginBottom: 16,
+        textTransform: 'uppercase',
+        letterSpacing: 1,
+    },
+    menuItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 14,
+        gap: 12,
+    },
+    menuText: {
+        fontSize: 16,
     },
 });

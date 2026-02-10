@@ -1,30 +1,42 @@
 /**
- * Below are the colors that are used in the app. The colors are defined in the light and dark mode.
- * There are many other ways to style your app. For example, [Nativewind](https://www.nativewind.dev/), [Tamagui](https://tamagui.dev/), [unistyles](https://reactnativeunistyles.vercel.app), etc.
+ * Strict Minimalist Theme
+ * Core Palette: Black & White ONLY.
+ * No accent colors.
+ * Subtle grays for non-decorative structure (borders, placeholders).
  */
 
-const tintColorLight = '#ff4b91';
-const tintColorDark = '#ff4b91';
+const white = '#FFFFFF';
+const black = '#000000';
+const subtleGrayLight = '#E5E5E5';
+const subtleGrayDark = '#333333';
 
 export const Colors = {
     light: {
-        text: '#11181C',
-        background: '#fff',
-        tint: tintColorLight,
-        icon: '#687076',
-        tabIconDefault: '#687076',
-        tabIconSelected: tintColorLight,
+        text: black,
+        background: white,
+        tint: black,
+        icon: black,
+        tabIconDefault: '#999999', // Gray for unselected to show state
+        tabIconSelected: black,
+        border: subtleGrayLight,
+        card: '#F5F5F5', // Light gray to stand out on white background
+        placeholder: '#A1A1A1',
+        error: black, // Avoid red if possible, or keep it minimal
+        buttonInitial: black,
+        buttonText: white,
     },
     dark: {
-        text: '#ECEDEE',
-        background: '#050505',
-        tint: tintColorDark,
-        icon: '#9BA1A6',
-        tabIconDefault: '#9BA1A6',
-        tabIconSelected: tintColorDark,
-        card: '#121212',
-        border: '#333333',
-        primary: '#ff4b91',
-        secondary: '#2d2d2d'
+        text: white,
+        background: black,
+        tint: white,
+        icon: white,
+        tabIconDefault: '#666666', // Gray for unselected
+        tabIconSelected: white,
+        border: subtleGrayDark,
+        card: '#2C2C2C', // Lighter dark gray for better contrast against black
+        placeholder: '#555555',
+        error: white,
+        buttonInitial: white,
+        buttonText: black,
     },
 };

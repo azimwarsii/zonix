@@ -1,6 +1,8 @@
 import { ThemedText } from '@/components/themed-text';
+import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/context/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import firestore from '@react-native-firebase/firestore';
 import { Image } from 'expo-image';
@@ -13,24 +15,34 @@ import {
     KeyboardAvoidingView,
     Modal,
     Platform,
-    SafeAreaView,
     StyleSheet,
     TextInput,
     TouchableOpacity,
     TouchableWithoutFeedback,
     View
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 
 export default function MessageScreen() {
-    const { id } = useLocalSearchParams(); // This is the coachId
+    const { id, initialName, initialPortrait } = useLocalSearchParams(); // This is the coachId
     const router = useRouter();
-    const { user } = useAuth();
-    const [coach, setCoach] = useState<any>(null);
-    const [loading, setLoading] = useState(true);
+    const { user, userData, presentPaywall } = useAuth();
+
+    // Optimistic loading: Start with basic info if passed via params
+    const [coach, setCoach] = useState<any>(initialName ? {
+        name: initialName,
+        portraitUrl: initialPortrait
+    } : null);
+
+    // Only show full screen loader if we have NO data at all
+    const [loading, setLoading] = useState(!initialName);
     const [messageText, setMessageText] = useState('');
     const [messages, setMessages] = useState<any[]>([]);
     const [showMenu, setShowMenu] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
+
+    const colorScheme = useColorScheme();
+    const themeColors = Colors[colorScheme ?? 'light'];
 
     useEffect(() => {
         const fetchCoach = async () => {
@@ -81,6 +93,19 @@ export default function MessageScreen() {
     const handleSend = async () => {
         if (!messageText.trim() || !user || !id) return;
 
+        // Check for credits if not premium
+        if (userData?.planType !== 'Premium' && (userData?.credits || 0) < 1) {
+            Alert.alert(
+                "Out of Coins 🪙",
+                "You need at least 1 coin to send a message. Upgrade to Pro for unlimited access!",
+                [
+                    { text: "Later", style: "cancel" },
+                    { text: "Upgrade Now", onPress: () => presentPaywall() }
+                ]
+            );
+            return;
+        }
+
         const text = messageText.trim();
         setMessageText(''); // Clear input immediately
         setIsTyping(true);  // Show typing indicator
@@ -90,25 +115,27 @@ export default function MessageScreen() {
         const messagesRef = conversationRef.collection('messages');
 
         try {
-            await firestore().runTransaction(async (transaction) => {
-                // Ensure conversation document exists
-                transaction.set(conversationRef, {
-                    lastMessageAt: firestore.FieldValue.serverTimestamp(),
-                    participants: [user.uid, id],
-                    coachId: id,
-                    userId: user.uid,
-                    // Optional: Initialize other fields like tokenUsageTotal if new
-                }, { merge: true });
+            // Use batch write instead of transaction for optimistic UI updates (instant feedback)
+            const batch = firestore().batch();
 
-                // Add new message
-                const newMessageRef = messagesRef.doc();
-                transaction.set(newMessageRef, {
-                    content: text,
-                    role: 'user',
-                    createdAt: firestore.FieldValue.serverTimestamp(),
-                    userId: user.uid
-                });
+            // 1. Update/Create Conversation Doc
+            batch.set(conversationRef, {
+                lastMessageAt: firestore.FieldValue.serverTimestamp(),
+                participants: [user.uid, id],
+                coachId: id,
+                userId: user.uid,
+            }, { merge: true });
+
+            // 2. Add New Message
+            const newMessageRef = messagesRef.doc();
+            batch.set(newMessageRef, {
+                content: text,
+                role: 'user',
+                createdAt: firestore.FieldValue.serverTimestamp(),
+                userId: user.uid
             });
+
+            await batch.commit();
         } catch (error) {
             console.error('Error sending message:', error);
             setIsTyping(false); // Revert on error
@@ -157,11 +184,13 @@ export default function MessageScreen() {
         return (
             <View style={[
                 styles.messageBubble,
-                isUser ? styles.userBubble : styles.aiBubble
+                isUser
+                    ? { backgroundColor: themeColors.tint, borderBottomRightRadius: 4, alignSelf: 'flex-end' }
+                    : { backgroundColor: themeColors.card, borderBottomLeftRadius: 4, alignSelf: 'flex-start' }
             ]}>
                 <ThemedText style={[
                     styles.messageText,
-                    isUser ? styles.userText : styles.aiText
+                    isUser ? { color: themeColors.background } : { color: themeColors.text }
                 ]}>
                     {item.content}
                 </ThemedText>
@@ -172,8 +201,8 @@ export default function MessageScreen() {
     const renderHeader = () => {
         if (!isTyping) return null;
         return (
-            <View style={[styles.messageBubble, styles.aiBubble, styles.typingBubble]}>
-                <ActivityIndicator size="small" color="#aaa" />
+            <View style={[styles.messageBubble, { backgroundColor: themeColors.card, borderBottomLeftRadius: 4, width: 60, height: 40, justifyContent: 'center', alignItems: 'center' }]}>
+                <ActivityIndicator size="small" color={themeColors.icon} />
             </View>
         );
     };
@@ -184,8 +213,8 @@ export default function MessageScreen() {
 
         // If we have messages, we still show the greeting as the very first message ever sent (bottom of list)
         return (
-            <View style={[styles.messageBubble, styles.aiBubble, { marginBottom: 20 }]}>
-                <ThemedText style={[styles.messageText, styles.aiText]}>
+            <View style={[styles.messageBubble, { backgroundColor: themeColors.card, borderBottomLeftRadius: 4, marginBottom: 20 }]}>
+                <ThemedText style={[styles.messageText, { color: themeColors.text }]}>
                     {greeting}
                 </ThemedText>
             </View>
@@ -194,35 +223,14 @@ export default function MessageScreen() {
 
     if (loading) {
         return (
-            <View style={styles.centered}>
-                <ActivityIndicator size="large" color="#aa48b7" />
+            <View style={[styles.centered, { backgroundColor: themeColors.background }]}>
+                <ActivityIndicator size="large" color={themeColors.text} />
             </View>
         );
     }
 
     return (
-        <SafeAreaView style={styles.container}>
-            {/* Header */}
-            <View style={styles.header}>
-                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={24} color="#fff" />
-                </TouchableOpacity>
-                <View style={styles.headerContent}>
-                    <Image
-                        source={{ uri: coach?.portraitUrl || 'https://images.unsplash.com/photo-1542385151-efd9000785a0?q=80&w=3000&auto=format&fit=crop' }}
-                        style={styles.avatar}
-                        contentFit="cover"
-                    />
-                    <View>
-                        <ThemedText style={styles.headerName}>{coach?.name || 'Coach'}</ThemedText>
-                        <ThemedText style={styles.headerStatus}>Online</ThemedText>
-                    </View>
-                </View>
-                <TouchableOpacity style={styles.menuButton} onPress={() => setShowMenu(true)}>
-                    <Ionicons name="ellipsis-vertical" size={24} color="#fff" />
-                </TouchableOpacity>
-            </View>
-
+        <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
             {/* Menu Modal */}
             <Modal
                 transparent
@@ -232,19 +240,19 @@ export default function MessageScreen() {
             >
                 <TouchableWithoutFeedback onPress={() => setShowMenu(false)}>
                     <View style={styles.modalOverlay}>
-                        <View style={styles.menuContainer}>
+                        <View style={[styles.menuContainer, { backgroundColor: themeColors.card, shadowColor: "#000" }]}>
                             <TouchableOpacity style={styles.menuItem} onPress={() => {
                                 setShowMenu(false);
                                 router.push({ pathname: '/coach/[id]', params: { id: id as string } });
                             }}>
-                                <Ionicons name="person-outline" size={20} color="#fff" />
-                                <ThemedText style={styles.menuText}>View Profile</ThemedText>
+                                <Ionicons name="person-outline" size={20} color={themeColors.text} />
+                                <ThemedText style={[styles.menuText, { color: themeColors.text }]}>View Profile</ThemedText>
                             </TouchableOpacity>
                             <TouchableOpacity style={styles.menuItem} onPress={handleReport}>
-                                <Ionicons name="flag-outline" size={20} color="#fff" />
-                                <ThemedText style={styles.menuText}>Report</ThemedText>
+                                <Ionicons name="flag-outline" size={20} color={themeColors.text} />
+                                <ThemedText style={[styles.menuText, { color: themeColors.text }]}>Report</ThemedText>
                             </TouchableOpacity>
-                            <TouchableOpacity style={[styles.menuItem, styles.deleteItem]} onPress={handleDeleteChat}>
+                            <TouchableOpacity style={[styles.menuItem, styles.deleteItem, { borderTopColor: themeColors.border }]} onPress={handleDeleteChat}>
                                 <Ionicons name="trash-outline" size={20} color="#ff4b4b" />
                                 <ThemedText style={[styles.menuText, styles.deleteText]}>Delete Chat</ThemedText>
                             </TouchableOpacity>
@@ -252,34 +260,74 @@ export default function MessageScreen() {
                     </View>
                 </TouchableWithoutFeedback>
             </Modal>
-
-            {/* Chat Area */}
-            <FlatList
-                data={messages}
-                renderItem={renderMessage}
-                keyExtractor={item => item.id}
-                inverted
-                ListHeaderComponent={renderHeader}
-                ListFooterComponent={renderFooter}
-                contentContainerStyle={styles.messageList}
-            />
-
-            {/* Input Area */}
+            {/* Content wrapped to avoid keyboard */}
             <KeyboardAvoidingView
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+                style={{ flex: 1 }}
+                keyboardVerticalOffset={0}
             >
-                <View style={styles.inputContainer}>
+                {/* Header */}
+                <View style={[styles.header, { borderBottomColor: themeColors.border, backgroundColor: themeColors.background }]}>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={24} color={themeColors.text} />
+                    </TouchableOpacity>
+                    <View style={styles.headerContent}>
+                        <Image
+                            source={{ uri: coach?.portraitUrl || 'https://images.unsplash.com/photo-1542385151-efd9000785a0?q=80&w=3000&auto=format&fit=crop' }}
+                            style={[styles.avatar, { borderColor: themeColors.border }]}
+                            contentFit="cover"
+                        />
+                        <View>
+                            <ThemedText style={[styles.headerName, { color: themeColors.text }]}>{coach?.name || 'Coach'}</ThemedText>
+                            <ThemedText style={[styles.headerStatus, { color: 'green' }]}>Online</ThemedText>
+                        </View>
+                    </View>
+
+                    {/* Minimalist Coin Badge for non-Premium users */}
+                    {userData?.planType !== 'Premium' && (
+                        <TouchableOpacity
+                            style={[styles.coinsBadge, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+                            activeOpacity={0.7}
+                            onPress={() => presentPaywall()}
+                        >
+                            <Ionicons name="sparkles" size={14} color="#FFD700" />
+                            <ThemedText style={[styles.coinsText, { color: themeColors.text }]}>
+                                {`${userData?.credits || 0}`}
+                            </ThemedText>
+                        </TouchableOpacity>
+                    )}
+
+                    <TouchableOpacity style={styles.menuButton} onPress={() => setShowMenu(true)}>
+                        <Ionicons name="ellipsis-vertical" size={24} color={themeColors.text} />
+                    </TouchableOpacity>
+                </View>
+
+                {/* Chat Area */}
+                <FlatList
+                    data={messages}
+                    renderItem={renderMessage}
+                    keyExtractor={item => item.id}
+                    inverted
+                    ListHeaderComponent={renderHeader}
+                    ListFooterComponent={renderFooter}
+                    contentContainerStyle={styles.messageList}
+                />
+
+                {/* Input Area */}
+                <View style={[styles.inputContainer, { backgroundColor: themeColors.background, borderTopColor: themeColors.border }]}>
                     <TextInput
-                        style={styles.input}
+                        style={[styles.input, { backgroundColor: themeColors.card, color: themeColors.text, borderColor: themeColors.border }]}
                         placeholder="Type a message..."
-                        placeholderTextColor="#888"
+                        placeholderTextColor={themeColors.icon}
                         value={messageText}
                         onChangeText={setMessageText}
                         multiline
                     />
-                    <TouchableOpacity style={styles.sendButton} onPress={handleSend}>
-                        <Ionicons name="send" size={20} color="#fff" />
+                    <TouchableOpacity
+                        style={[styles.sendButton, { backgroundColor: themeColors.text }]}
+                        onPress={handleSend}
+                    >
+                        <Ionicons name="send" size={18} color={themeColors.background} />
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
@@ -290,13 +338,11 @@ export default function MessageScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0a0a0a',
     },
     centered: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#0a0a0a',
     },
     header: {
         flexDirection: 'row',
@@ -304,7 +350,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#222',
         paddingTop: Platform.OS === 'android' ? 40 : 12,
         zIndex: 10,
     },
@@ -321,16 +366,14 @@ const styles = StyleSheet.create({
         height: 36,
         borderRadius: 18,
         marginRight: 10,
-        backgroundColor: '#333',
+        borderWidth: 1,
     },
     headerName: {
         fontSize: 16,
         fontFamily: Fonts.bold,
-        color: '#fff',
     },
     headerStatus: {
         fontSize: 12,
-        color: '#00cc00',
         fontFamily: Fonts.body,
     },
     menuButton: {
@@ -344,11 +387,9 @@ const styles = StyleSheet.create({
         position: 'absolute',
         top: Platform.OS === 'android' ? 80 : 100, // Approximate header height
         right: 16,
-        backgroundColor: '#1a1a1a',
         borderRadius: 12,
         padding: 8,
         elevation: 5,
-        shadowColor: "#000",
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.25,
         shadowRadius: 3.84,
@@ -361,14 +402,12 @@ const styles = StyleSheet.create({
         paddingHorizontal: 12,
     },
     menuText: {
-        color: '#fff',
         marginLeft: 12,
         fontSize: 16,
         fontFamily: Fonts.body,
     },
     deleteItem: {
         borderTopWidth: 1,
-        borderTopColor: '#333',
         marginTop: 4,
     },
     deleteText: {
@@ -383,59 +422,50 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         marginBottom: 8,
     },
-    userBubble: {
-        alignSelf: 'flex-end',
-        backgroundColor: '#aa48b7',
-        borderBottomRightRadius: 4,
-    },
-    aiBubble: {
-        alignSelf: 'flex-start',
-        backgroundColor: '#222',
-        borderBottomLeftRadius: 4,
-    },
-    typingBubble: {
-        width: 60,
-        height: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
     messageText: {
         fontSize: 15,
         fontFamily: Fonts.body,
         lineHeight: 22,
     },
-    userText: {
-        color: '#fff',
-    },
-    aiText: {
-        color: '#eee',
-    },
     inputContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
-        padding: 12,
+        alignItems: 'flex-end',
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        paddingBottom: Platform.OS === 'ios' ? 28 : 12, // More padding for premium feel and home indicator
         borderTopWidth: 1,
-        borderTopColor: '#222',
-        backgroundColor: '#0a0a0a',
     },
     input: {
         flex: 1,
-        backgroundColor: '#1a1a1a',
-        borderRadius: 20,
-        paddingHorizontal: 16,
-        paddingVertical: 10,
-        color: '#fff',
-        fontSize: 15,
+        borderRadius: 24,
+        paddingHorizontal: 20,
+        paddingVertical: 12, // Slightly taller for premium feel
+        fontSize: 16,
         fontFamily: Fonts.body,
-        maxHeight: 100,
+        maxHeight: 120,
         marginRight: 12,
+        borderWidth: 1,
     },
     sendButton: {
-        width: 40,
-        height: 40,
-        borderRadius: 20,
-        backgroundColor: '#aa48b7',
+        width: 44, // Slightly larger button
+        height: 44,
+        borderRadius: 22,
         justifyContent: 'center',
         alignItems: 'center',
+        marginBottom: 2, // Fine-tuned alignment with input text
+    },
+    coinsBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 10,
+        paddingVertical: 5,
+        borderRadius: 15,
+        borderWidth: 1,
+        marginRight: 8,
+        gap: 4,
+    },
+    coinsText: {
+        fontSize: 14,
+        fontFamily: Fonts.bold,
     },
 });

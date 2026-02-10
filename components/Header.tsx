@@ -1,15 +1,16 @@
 import Logo from '@/components/Logo';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/context/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerActions } from '@react-navigation/native';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, {
+import { StyleSheet, TouchableOpacity, View } from 'react-native';
+import {
     Easing,
     useAnimatedStyle,
     useSharedValue,
@@ -31,6 +32,8 @@ export default function Header({ rightContent = 'auth' }: HeaderProps) {
     const { user, userData, presentPaywall } = useAuth();
     const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
     const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
+    const colorScheme = useColorScheme();
+    const themeColors = Colors[colorScheme ?? 'light'];
 
     // Animation for the avatar glow
     const rotation = useSharedValue(0);
@@ -57,9 +60,13 @@ export default function Header({ rightContent = 'auth' }: HeaderProps) {
     return (
         <ThemedView style={styles.header}>
             {/* Hamburger Menu */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
-                    <Ionicons name="menu" size={24} color="#fff" />
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                <TouchableOpacity
+                    onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+                    style={{ padding: 8, marginHorizontal: -8 }} // Increase touch area visually and logically
+                    hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }} // Increase touch area invisibly
+                >
+                    <Ionicons name="menu" size={28} color={themeColors.text} />
                 </TouchableOpacity>
                 {/* App Logo */}
                 <Logo width={120} height={30} />
@@ -73,27 +80,19 @@ export default function Header({ rightContent = 'auth' }: HeaderProps) {
                             <PremiumBadge />
                         ) : (
                             <TouchableOpacity
-                                style={styles.upgradeHeaderButton}
+                                style={[styles.upgradeHeaderButton, { borderColor: themeColors.border }]}
                                 onPress={presentPaywall}
                             >
-                                <Ionicons name="diamond" size={14} color="#fff" />
+                                <Ionicons name="diamond-outline" size={14} color={themeColors.text} />
                                 <ThemedText style={styles.upgradeHeaderText}>Upgrade</ThemedText>
                             </TouchableOpacity>
                         )}
                         <TouchableOpacity onPress={() => router.push('/profile')}>
                             <View style={styles.miniAvatarContainer}>
-                                <Animated.View style={[styles.miniAvatarGlow, animatedGlowStyle]}>
-                                    <LinearGradient
-                                        colors={['#aa48b7', '#4a148c', '#aa48b7']}
-                                        start={{ x: 0, y: 0 }}
-                                        end={{ x: 1, y: 1 }}
-                                        style={StyleSheet.absoluteFill}
-                                    />
-                                </Animated.View>
-                                <View style={styles.miniAvatarInner}>
-                                    <Text style={styles.miniAvatarText}>
+                                <View style={[styles.miniAvatarInner, { borderColor: themeColors.border, backgroundColor: themeColors.card }]}>
+                                    <ThemedText style={[styles.miniAvatarText, { color: themeColors.text }]}>
                                         {(userData?.userName || 'D')[0].toUpperCase()}
-                                    </Text>
+                                    </ThemedText>
                                 </View>
                             </View>
                         </TouchableOpacity>
@@ -103,13 +102,13 @@ export default function Header({ rightContent = 'auth' }: HeaderProps) {
                         <TouchableOpacity style={styles.loginButton} onPress={() => openAuthModal('login')}>
                             <ThemedText style={styles.loginText}>Login</ThemedText>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.joinButton} onPress={() => openAuthModal('signup')}>
-                            <ThemedText style={styles.joinText}>Join Free</ThemedText>
+                        <TouchableOpacity style={[styles.joinButton, { borderColor: themeColors.text }]} onPress={() => openAuthModal('signup')}>
+                            <ThemedText style={styles.joinText}>Join</ThemedText>
                         </TouchableOpacity>
                     </>
                 ) : (
                     <TouchableOpacity onPress={() => router.push('/profile')}>
-                        <Ionicons name="person-circle-outline" size={32} color="#fff" />
+                        <Ionicons name="person-circle-outline" size={32} color={themeColors.text} />
                     </TouchableOpacity>
                 )}
             </View>
@@ -130,7 +129,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         paddingHorizontal: 16,
         paddingVertical: 12,
-        backgroundColor: '#0a0a0a',
     },
     headerRight: {
         flexDirection: 'row',
@@ -140,39 +138,35 @@ const styles = StyleSheet.create({
     loginButton: {
         paddingHorizontal: 12,
         paddingVertical: 6,
-        borderRadius: 6,
-        borderWidth: 1,
-        borderColor: '#aa48b7',
     },
     loginText: {
-        color: '#aa48b7',
-        fontWeight: '600',
-        fontSize: 12,
+        fontSize: 14,
+        fontWeight: '500',
     },
     joinButton: {
-        paddingHorizontal: 12,
+        paddingHorizontal: 14,
         paddingVertical: 6,
-        borderRadius: 6,
-        backgroundColor: '#aa48b7',
+        borderWidth: 1,
+        borderRadius: 4,
+        marginLeft: 8,
     },
     joinText: {
-        color: '#fff',
-        fontWeight: '600',
-        fontSize: 12,
+        fontSize: 14,
+        fontWeight: '500',
     },
     upgradeHeaderButton: {
         flexDirection: 'row',
         alignItems: 'center',
         gap: 6,
-        backgroundColor: '#aa48b7',
         paddingVertical: 6,
         paddingHorizontal: 12,
         borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#333',
     },
     upgradeHeaderText: {
-        color: '#fff',
-        fontWeight: 'bold',
         fontSize: 12,
+        fontWeight: '600',
     },
     premiumBadge: {
         backgroundColor: '#FFD70033',
@@ -207,13 +201,12 @@ const styles = StyleSheet.create({
         width: 30,
         height: 30,
         borderRadius: 15,
-        backgroundColor: '#0a0a0a',
+        borderWidth: 1,
         justifyContent: 'center',
         alignItems: 'center',
         zIndex: 1,
     },
     miniAvatarText: {
-        color: '#fff',
         fontSize: 14,
         fontWeight: 'bold',
         fontFamily: Fonts.bold,

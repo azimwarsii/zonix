@@ -2,12 +2,13 @@ import AuthModal from '@/components/AuthModal';
 import Header from '@/components/Header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/context/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import firestore from '@react-native-firebase/firestore';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
@@ -20,7 +21,40 @@ import {
     TouchableOpacity,
     View,
 } from 'react-native';
+import Animated, { useAnimatedStyle, useSharedValue, withRepeat, withSequence, withTiming } from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
+
+const SkeletonChatRow = ({ themeColors }: { themeColors: any }) => {
+    const opacity = useSharedValue(0.3);
+
+    React.useEffect(() => {
+        opacity.value = withRepeat(
+            withSequence(
+                withTiming(0.7, { duration: 1000 }),
+                withTiming(0.3, { duration: 1000 })
+            ),
+            -1,
+            true
+        );
+    }, []);
+
+    const animatedStyle = useAnimatedStyle(() => ({
+        opacity: opacity.value,
+    }));
+
+    return (
+        <View style={[styles.chatItem, { borderBottomColor: themeColors.border, paddingVertical: 16 }]}>
+            <Animated.View style={[styles.skeletonAvatar, { backgroundColor: themeColors.card }, animatedStyle]} />
+            <View style={{ flex: 1, gap: 8 }}>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                    <Animated.View style={[styles.skeletonTitle, { backgroundColor: themeColors.card }, animatedStyle]} />
+                    <Animated.View style={[styles.skeletonTime, { backgroundColor: themeColors.card }, animatedStyle]} />
+                </View>
+                <Animated.View style={[styles.skeletonText, { backgroundColor: themeColors.card }, animatedStyle]} />
+            </View>
+        </View>
+    );
+};
 
 const { width } = Dimensions.get('window');
 
@@ -31,6 +65,9 @@ export default function ChatScreen() {
     const [chats, setChats] = useState<any[]>([]);
     const [showAuthModal, setShowAuthModal] = useState(false);
     const [expandedFaq, setExpandedFaq] = useState<string | null>(null);
+
+    const colorScheme = useColorScheme();
+    const themeColors = Colors[colorScheme ?? 'light'];
 
     const toggleFaq = (id: string) => {
         setExpandedFaq(expandedFaq === id ? null : id);
@@ -58,7 +95,7 @@ export default function ChatScreen() {
                         let coach = { name: 'Unknown Coach', portraitUrl: '' };
                         if (data.coachId) {
                             const coachDoc = await firestore().collection('coaches').doc(data.coachId).get();
-                            if (coachDoc.exists) {
+                            if (coachDoc.exists()) {
                                 coach = coachDoc.data() as any;
                             }
                         }
@@ -108,7 +145,7 @@ export default function ChatScreen() {
 
     const renderChatItem = ({ item }: { item: any }) => (
         <TouchableOpacity
-            style={styles.chatItem}
+            style={[styles.chatItem, { borderBottomColor: themeColors.border }]}
             onPress={() => router.push({ pathname: '/message/[id]', params: { id: item.coachId } })}
             onLongPress={() => handleDeleteChat(item.id)}
             delayLongPress={500}
@@ -116,22 +153,23 @@ export default function ChatScreen() {
         >
             <Image
                 source={{ uri: item.coach.portraitUrl || 'https://images.unsplash.com/photo-1542385151-efd9000785a0?q=80&w=3000&auto=format&fit=crop' }}
-                style={styles.avatar}
+                style={[styles.avatar, { borderColor: themeColors.border }]}
                 contentFit="cover"
             />
             <View style={styles.chatInfo}>
                 <View style={styles.chatHeader}>
-                    <ThemedText style={styles.coachName}>{item.coach.name}</ThemedText>
+                    <ThemedText style={[styles.coachName, { color: themeColors.text }]}>{item.coach.name}</ThemedText>
                     {item.lastMessageAt && (
-                        <ThemedText style={styles.chatTime}>
+                        <ThemedText style={[styles.chatTime, { color: themeColors.icon }]}>
                             {item.lastMessageAt?.toDate?.().toLocaleDateString()}
                         </ThemedText>
                     )}
                 </View>
-                <ThemedText style={styles.lastMessage} numberOfLines={1}>
+                <ThemedText style={[styles.lastMessage, { color: themeColors.icon }]} numberOfLines={1}>
                     Tap to continue conversation...
                 </ThemedText>
             </View>
+            <Ionicons name="chevron-forward" size={16} color={themeColors.border} />
         </TouchableOpacity>
     );
 
@@ -140,10 +178,10 @@ export default function ChatScreen() {
     // 1. Auth Loading
     if (authLoading) {
         return (
-            <SafeAreaView style={styles.container} edges={['top']}>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
                 <Header />
-                <View style={styles.centered}>
-                    <ActivityIndicator size="large" color="#aa48b7" />
+                <View style={[styles.centered, { backgroundColor: themeColors.background }]}>
+                    <ActivityIndicator size="large" color={themeColors.text} />
                 </View>
             </SafeAreaView>
         );
@@ -152,15 +190,15 @@ export default function ChatScreen() {
     // 2. Not Signed In
     if (!user) {
         return (
-            <SafeAreaView style={styles.container} edges={['top']}>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
                 <Header />
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
                     <View style={styles.emptyStateContainer}>
-                        <View style={styles.iconCircle}>
-                            <Ionicons name="chatbubbles-outline" size={40} color="#aa48b7" />
+                        <View style={[styles.iconCircle, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                            <Ionicons name="chatbubbles-outline" size={40} color={themeColors.text} />
                         </View>
-                        <ThemedText style={styles.emptyStateTitle}>Sign in to Chat</ThemedText>
-                        <ThemedText style={styles.emptyStateDescription}>
+                        <ThemedText style={[styles.emptyStateTitle, { color: themeColors.text }]}>Sign in to Chat</ThemedText>
+                        <ThemedText style={[styles.emptyStateDescription, { color: themeColors.icon }]}>
                             Connect with AI coaches, save your conversation history, and pick up right where you left off.
                         </ThemedText>
 
@@ -168,33 +206,28 @@ export default function ChatScreen() {
                             style={styles.ctaButton}
                             onPress={() => setShowAuthModal(true)}
                         >
-                            <LinearGradient
-                                colors={['#aa48b7', '#4a148c']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.ctaGradient}
-                            >
-                                <ThemedText style={styles.ctaText}>Sign In to Start</ThemedText>
-                                <Ionicons name="log-in-outline" size={20} color="#fff" />
-                            </LinearGradient>
+                            <View style={[styles.ctaGradient, { backgroundColor: themeColors.text }]}>
+                                <ThemedText style={[styles.ctaText, { color: themeColors.background }]}>Sign In to Start</ThemedText>
+                                <Ionicons name="log-in-outline" size={20} color={themeColors.background} />
+                            </View>
                         </TouchableOpacity>
                     </View>
 
                     {/* Quick Info for Signed Out Users */}
                     <View style={styles.infoSection}>
-                        <ThemedText style={styles.sectionTitle}>Why Chat?</ThemedText>
+                        <ThemedText style={[styles.sectionTitle, { color: themeColors.text }]}>Why Chat?</ThemedText>
                         <View style={styles.featureRow}>
-                            <Ionicons name="infinite-outline" size={24} color="#888" style={{ marginRight: 15 }} />
+                            <Ionicons name="infinite-outline" size={24} color={themeColors.icon} style={{ marginRight: 15 }} />
                             <View style={{ flex: 1 }}>
-                                <ThemedText style={styles.featureTitle}>Unlimited Conversations</ThemedText>
-                                <ThemedText style={styles.featureDesc}>Talk as much as you want with any coach.</ThemedText>
+                                <ThemedText style={[styles.featureTitle, { color: themeColors.text }]}>Unlimited Conversations</ThemedText>
+                                <ThemedText style={[styles.featureDesc, { color: themeColors.icon }]}>Talk as much as you want with any coach.</ThemedText>
                             </View>
                         </View>
                         <View style={styles.featureRow}>
-                            <Ionicons name="lock-closed-outline" size={24} color="#888" style={{ marginRight: 15 }} />
+                            <Ionicons name="lock-closed-outline" size={24} color={themeColors.icon} style={{ marginRight: 15 }} />
                             <View style={{ flex: 1 }}>
-                                <ThemedText style={styles.featureTitle}>Private & Secure</ThemedText>
-                                <ThemedText style={styles.featureDesc}>Your chats are private and encrypted.</ThemedText>
+                                <ThemedText style={[styles.featureTitle, { color: themeColors.text }]}>Private & Secure</ThemedText>
+                                <ThemedText style={[styles.featureDesc, { color: themeColors.icon }]}>Your chats are private and encrypted.</ThemedText>
                             </View>
                         </View>
                     </View>
@@ -212,19 +245,17 @@ export default function ChatScreen() {
     // 3. Signed In but No Chats (Empty State)
     if (chats.length === 0 && !loadingChats) {
         return (
-            <SafeAreaView style={styles.container} edges={['top']}>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
                 <Header />
                 <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-                    <ThemedView style={styles.headerContainer}>
-                        <ThemedText type="title" style={styles.pageTitle}>Your Chats</ThemedText>
-                    </ThemedView>
+                    
 
                     <View style={styles.emptyStateContainer}>
-                        <View style={styles.iconCircle}>
-                            <Ionicons name="chatbubble-ellipses-outline" size={40} color="#aa48b7" />
+                        <View style={[styles.iconCircle, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                            <Ionicons name="chatbubble-ellipses-outline" size={40} color={themeColors.text} />
                         </View>
-                        <ThemedText style={styles.emptyStateTitle}>Start a Conversation</ThemedText>
-                        <ThemedText style={styles.emptyStateDescription}>
+                        <ThemedText style={[styles.emptyStateTitle, { color: themeColors.text }]}>Start a Conversation</ThemedText>
+                        <ThemedText style={[styles.emptyStateDescription, { color: themeColors.icon }]}>
                             You haven't chatted with anyone yet. Explore our community of AI coaches and say hello!
                         </ThemedText>
 
@@ -232,21 +263,16 @@ export default function ChatScreen() {
                             style={styles.ctaButton}
                             onPress={() => router.push('/(tabs)/explore')}
                         >
-                            <LinearGradient
-                                colors={['#aa48b7', '#4a148c']}
-                                start={{ x: 0, y: 0 }}
-                                end={{ x: 1, y: 1 }}
-                                style={styles.ctaGradient}
-                            >
-                                <ThemedText style={styles.ctaText}>Explore Coaches</ThemedText>
-                                <Ionicons name="compass-outline" size={20} color="#fff" />
-                            </LinearGradient>
+                            <View style={[styles.ctaGradient, { backgroundColor: themeColors.text }]}>
+                                <ThemedText style={[styles.ctaText, { color: themeColors.background }]}>Explore Coaches</ThemedText>
+                                <Ionicons name="compass-outline" size={20} color={themeColors.background} />
+                            </View>
                         </TouchableOpacity>
                     </View>
 
                     {/* FAQ Section */}
                     <View style={styles.faqSection}>
-                        <ThemedText style={styles.sectionTitle}>Frequently Asked Questions</ThemedText>
+                        <ThemedText style={[styles.sectionTitle, { color: themeColors.text }]}>Frequently Asked Questions</ThemedText>
 
                         {[
                             { id: '1', q: "Are chats free?", a: "Yes, you can chat for free with most coaches. Premium features may require a subscription." },
@@ -255,20 +281,20 @@ export default function ChatScreen() {
                         ].map(item => (
                             <TouchableOpacity
                                 key={item.id}
-                                style={styles.faqItem}
+                                style={[styles.faqItem, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
                                 onPress={() => toggleFaq(item.id)}
                                 activeOpacity={0.7}
                             >
                                 <View style={styles.faqHeader}>
-                                    <ThemedText style={styles.faqQuestion}>{item.q}</ThemedText>
+                                    <ThemedText style={[styles.faqQuestion, { color: themeColors.text }]}>{item.q}</ThemedText>
                                     <Ionicons
                                         name={expandedFaq === item.id ? "chevron-up" : "chevron-down"}
                                         size={20}
-                                        color="#666"
+                                        color={themeColors.icon}
                                     />
                                 </View>
                                 {expandedFaq === item.id && (
-                                    <ThemedText style={styles.faqAnswer}>{item.a}</ThemedText>
+                                    <ThemedText style={[styles.faqAnswer, { color: themeColors.icon }]}>{item.a}</ThemedText>
                                 )}
                             </TouchableOpacity>
                         ))}
@@ -280,15 +306,14 @@ export default function ChatScreen() {
 
     // 4. Has Chats List
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
             <Header />
-            <ThemedView style={styles.headerContainer}>
-                <ThemedText type="title" style={styles.pageTitle}>Your Chats</ThemedText>
-            </ThemedView>
 
             {loadingChats ? (
-                <View style={styles.centered}>
-                    <ActivityIndicator size="large" color="#aa48b7" />
+                <View style={styles.listContent}>
+                    {[1, 2, 3, 4, 5, 6].map((i) => (
+                        <SkeletonChatRow key={i} themeColors={themeColors} />
+                    ))}
                 </View>
             ) : (
                 <FlatList
@@ -296,6 +321,7 @@ export default function ChatScreen() {
                     renderItem={renderChatItem}
                     keyExtractor={item => item.id}
                     contentContainerStyle={styles.listContent}
+                    ItemSeparatorComponent={() => <View style={{ height: 1, backgroundColor: 'transparent' }} />}
                 />
             )}
         </SafeAreaView>
@@ -305,7 +331,6 @@ export default function ChatScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0a0a0a',
     },
     scrollContent: {
         paddingBottom: 40,
@@ -314,12 +339,10 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingBottom: 16,
         paddingTop: 10,
-        backgroundColor: '#0a0a0a',
     },
     pageTitle: {
         fontSize: 28,
         fontFamily: Fonts.bold,
-        color: '#fff',
     },
     centered: {
         flex: 1,
@@ -336,17 +359,14 @@ const styles = StyleSheet.create({
         width: 80,
         height: 80,
         borderRadius: 40,
-        backgroundColor: 'rgba(170, 72, 183, 0.1)',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 24,
         borderWidth: 1,
-        borderColor: 'rgba(170, 72, 183, 0.3)',
     },
     emptyStateTitle: {
         fontSize: 24,
         fontFamily: Fonts.bold,
-        color: '#fff',
         marginBottom: 12,
         textAlign: 'center',
     },
@@ -373,7 +393,6 @@ const styles = StyleSheet.create({
         gap: 10,
     },
     ctaText: {
-        color: '#fff',
         fontSize: 16,
         fontFamily: Fonts.bold,
     },
@@ -394,7 +413,6 @@ const styles = StyleSheet.create({
     sectionTitle: {
         fontSize: 18,
         fontFamily: Fonts.bold,
-        color: '#fff',
         marginBottom: 20,
         textAlign: 'left',
     },
@@ -407,7 +425,6 @@ const styles = StyleSheet.create({
     featureTitle: {
         fontSize: 16,
         fontFamily: Fonts.bold,
-        color: '#fff',
         marginBottom: 4,
     },
     featureDesc: {
@@ -488,7 +505,6 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         paddingVertical: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#222',
         marginBottom: 4,
     },
     avatar: {
@@ -496,7 +512,7 @@ const styles = StyleSheet.create({
         height: 50,
         borderRadius: 25,
         marginRight: 12,
-        backgroundColor: '#333',
+        borderWidth: 1,
     },
     chatInfo: {
         flex: 1,
@@ -509,16 +525,35 @@ const styles = StyleSheet.create({
     coachName: {
         fontSize: 16,
         fontFamily: Fonts.bold,
-        color: '#fff',
     },
     chatTime: {
         fontSize: 12,
-        color: '#666',
         fontFamily: Fonts.body,
     },
     lastMessage: {
         fontSize: 14,
-        color: '#888',
         fontFamily: Fonts.body,
+    },
+    // Skeleton Styles
+    skeletonAvatar: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        marginRight: 12,
+    },
+    skeletonTitle: {
+        width: 120,
+        height: 16,
+        borderRadius: 4,
+    },
+    skeletonTime: {
+        width: 40,
+        height: 12,
+        borderRadius: 4,
+    },
+    skeletonText: {
+        width: '80%',
+        height: 14,
+        borderRadius: 4,
     },
 });

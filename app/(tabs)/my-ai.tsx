@@ -3,11 +3,12 @@ import CharacterCard from '@/components/CharacterCard';
 import Header from '@/components/Header';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
 import { useAuth } from '@/context/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import firestore from '@react-native-firebase/firestore';
-import { LinearGradient } from 'expo-linear-gradient';
 import { useFocusEffect, useRouter } from 'expo-router';
 import React, { useCallback, useState } from 'react';
 import {
@@ -30,6 +31,9 @@ export default function MyAIScreen() {
     const [coaches, setCoaches] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
     const [showAuthModal, setShowAuthModal] = useState(false);
+
+    const colorScheme = useColorScheme();
+    const themeColors = Colors[colorScheme ?? 'light'];
 
     const fetchMyCoaches = async () => {
         if (!user) {
@@ -110,16 +114,16 @@ export default function MyAIScreen() {
                 />
             </TouchableOpacity>
 
-            <View style={styles.actionRow}>
+            <View style={[styles.actionRow, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
                 <TouchableOpacity
                     style={styles.actionButton}
                     onPress={() => router.push({ pathname: '/edit-coach', params: { id: item.id } })}
                 >
-                    <Ionicons name="create-outline" size={18} color="#fff" />
-                    <ThemedText style={styles.actionText}>Edit</ThemedText>
+                    <Ionicons name="create-outline" size={18} color={themeColors.text} />
+                    <ThemedText style={[styles.actionText, { color: themeColors.text }]}>Edit</ThemedText>
                 </TouchableOpacity>
 
-                <View style={styles.actionDivider} />
+                <View style={[styles.actionDivider, { backgroundColor: themeColors.border }]} />
 
                 <TouchableOpacity
                     style={styles.actionButton}
@@ -137,10 +141,10 @@ export default function MyAIScreen() {
     // 1. Loading State
     if (authLoading || (loading && user)) {
         return (
-            <SafeAreaView style={styles.container} edges={['top']}>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
                 <Header />
                 <View style={styles.centered}>
-                    <ActivityIndicator size="large" color="#aa48b7" />
+                    <ActivityIndicator size="large" color={themeColors.text} />
                 </View>
             </SafeAreaView>
         );
@@ -149,14 +153,14 @@ export default function MyAIScreen() {
     // 2. Not Signed In State
     if (!user) {
         return (
-            <SafeAreaView style={styles.container} edges={['top']}>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
                 <Header />
                 <View style={styles.emptyStateContainer}>
-                    <View style={styles.iconCircle}>
-                        <Ionicons name="person-outline" size={40} color="#aa48b7" />
+                    <View style={[styles.iconCircle, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                        <Ionicons name="person-outline" size={40} color={themeColors.text} />
                     </View>
-                    <ThemedText style={styles.emptyStateTitle}>Sign in to view your AI</ThemedText>
-                    <ThemedText style={styles.emptyStateDescription}>
+                    <ThemedText style={[styles.emptyStateTitle, { color: themeColors.text }]}>Sign in to view your AI</ThemedText>
+                    <ThemedText style={[styles.emptyStateDescription, { color: themeColors.icon }]}>
                         Create an account to build, manage, and chat with your own custom AI coaches.
                     </ThemedText>
 
@@ -164,15 +168,10 @@ export default function MyAIScreen() {
                         style={styles.ctaButton}
                         onPress={() => setShowAuthModal(true)}
                     >
-                        <LinearGradient
-                            colors={['#aa48b7', '#4a148c']}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.ctaGradient}
-                        >
-                            <ThemedText style={styles.ctaText}>Sign In / Sign Up</ThemedText>
-                            <Ionicons name="arrow-forward" size={20} color="#fff" />
-                        </LinearGradient>
+                        <View style={[styles.ctaGradient, { backgroundColor: themeColors.text }]}>
+                            <ThemedText style={[styles.ctaText, { color: themeColors.background }]}>Sign In / Sign Up</ThemedText>
+                            <Ionicons name="arrow-forward" size={20} color={themeColors.background} />
+                        </View>
                     </TouchableOpacity>
                 </View>
 
@@ -188,17 +187,17 @@ export default function MyAIScreen() {
     // 3. Signed In but No Coaches State
     if (coaches.length === 0) {
         return (
-            <SafeAreaView style={styles.container} edges={['top']}>
+            <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
                 <Header />
-                <ThemedView style={styles.headerContainer}>
-                    <ThemedText type="title" style={styles.pageTitle}>My AI Coaches</ThemedText>
+                <ThemedView style={[styles.headerContainer, { backgroundColor: themeColors.background }]}>
+                    <ThemedText type="title" style={[styles.pageTitle, { color: themeColors.text }]}>My AI Coaches</ThemedText>
                 </ThemedView>
                 <View style={styles.emptyStateContainer}>
-                    <View style={styles.iconCircle}>
-                        <Ionicons name="sparkles-outline" size={40} color="#aa48b7" />
+                    <View style={[styles.iconCircle, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                        <Ionicons name="sparkles-outline" size={40} color={themeColors.text} />
                     </View>
-                    <ThemedText style={styles.emptyStateTitle}>No AI Coaches Yet</ThemedText>
-                    <ThemedText style={styles.emptyStateDescription}>
+                    <ThemedText style={[styles.emptyStateTitle, { color: themeColors.text }]}>No AI Coaches Yet</ThemedText>
+                    <ThemedText style={[styles.emptyStateDescription, { color: themeColors.icon }]}>
                         You haven't created any digital twins yet. Start building your personal AI workforce today.
                     </ThemedText>
 
@@ -206,15 +205,10 @@ export default function MyAIScreen() {
                         style={styles.ctaButton}
                         onPress={() => router.push('/(tabs)/create')}
                     >
-                        <LinearGradient
-                            colors={['#aa48b7', '#4a148c']}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 1 }}
-                            style={styles.ctaGradient}
-                        >
-                            <ThemedText style={styles.ctaText}>Create New AI</ThemedText>
-                            <Ionicons name="add-circle-outline" size={20} color="#fff" />
-                        </LinearGradient>
+                        <View style={[styles.ctaGradient, { backgroundColor: themeColors.text }]}>
+                            <ThemedText style={[styles.ctaText, { color: themeColors.background }]}>Create New AI</ThemedText>
+                            <Ionicons name="add-circle-outline" size={20} color={themeColors.background} />
+                        </View>
                     </TouchableOpacity>
                 </View>
             </SafeAreaView>
@@ -223,11 +217,11 @@ export default function MyAIScreen() {
 
     // 4. Signed In and Has Coaches State
     return (
-        <SafeAreaView style={styles.container} edges={['top']}>
+        <SafeAreaView style={[styles.container, { backgroundColor: themeColors.background }]} edges={['top']}>
             <Header />
-            <ThemedView style={styles.headerContainer}>
-                <ThemedText type="title" style={styles.pageTitle}>My AI Coaches</ThemedText>
-                <ThemedText style={styles.subtitle}>{coaches.length} {coaches.length === 1 ? 'Coach' : 'Coaches'} Created</ThemedText>
+            <ThemedView style={[styles.headerContainer, { backgroundColor: themeColors.background }]}>
+                <ThemedText type="title" style={[styles.pageTitle, { color: themeColors.text }]}>My AI Coaches</ThemedText>
+                <ThemedText style={[styles.subtitle, { color: themeColors.icon }]}>{coaches.length} {coaches.length === 1 ? 'Coach' : 'Coaches'} Created</ThemedText>
             </ThemedView>
 
             <FlatList
@@ -246,22 +240,18 @@ export default function MyAIScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#0a0a0a',
     },
     headerContainer: {
         paddingHorizontal: 20,
         paddingBottom: 16,
         paddingTop: 10,
-        backgroundColor: '#0a0a0a',
     },
     pageTitle: {
         fontSize: 28,
         fontFamily: Fonts.bold,
-        color: '#fff',
     },
     subtitle: {
         fontSize: 14,
-        color: '#888',
         fontFamily: Fonts.body,
         marginTop: 4,
     },
@@ -285,11 +275,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         marginTop: 10,
-        backgroundColor: '#151515',
         borderRadius: 12,
         padding: 4,
         borderWidth: 1,
-        borderColor: '#222',
     },
     actionButton: {
         flex: 1,
@@ -302,13 +290,11 @@ const styles = StyleSheet.create({
     actionDivider: {
         width: 1,
         height: '60%',
-        backgroundColor: '#333',
     },
     actionText: {
         fontSize: 12,
         fontFamily: Fonts.body,
         fontWeight: '500',
-        color: '#fff',
     },
     // Empty State Styles
     emptyStateContainer: {
@@ -322,23 +308,19 @@ const styles = StyleSheet.create({
         width: 80,
         height: 80,
         borderRadius: 40,
-        backgroundColor: 'rgba(170, 72, 183, 0.1)',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 24,
         borderWidth: 1,
-        borderColor: 'rgba(170, 72, 183, 0.3)',
     },
     emptyStateTitle: {
         fontSize: 24,
         fontFamily: Fonts.bold,
-        color: '#fff',
         marginBottom: 12,
         textAlign: 'center',
     },
     emptyStateDescription: {
         fontSize: 16,
-        color: '#888',
         textAlign: 'center',
         lineHeight: 24,
         fontFamily: Fonts.body,

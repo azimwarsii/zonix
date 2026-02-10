@@ -1,14 +1,9 @@
-import {
-  Antonio_100Thin,
-  Antonio_300Light,
-  Antonio_400Regular,
-  useFonts,
-} from '@expo-google-fonts/antonio';
+
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import { Drawer } from 'expo-router/drawer';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Platform } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
@@ -23,17 +18,40 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-  const [loaded] = useFonts({
-    Antonio_100Thin,
-    Antonio_300Light,
-    Antonio_400Regular,
-  });
+
+
+  const [appIsReady, setAppIsReady] = useState(false);
 
   useEffect(() => {
-    if (loaded) {
-      SplashScreen.hideAsync();
+    async function prepare() {
+      try {
+        // Pre-load fonts, make any API calls you need to do here
+        // await Font.loadAsync(Entypo.font);
+
+        // Artificially delay for two seconds to simulate a slow loading
+        // experience. Remove this if you copy and paste the code!
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } catch (e) {
+        console.warn(e);
+      } finally {
+        // Tell the application to render
+        setAppIsReady(true);
+      }
     }
-  }, [loaded]);
+
+    prepare();
+  }, []);
+
+  const onLayoutRootView = useCallback(async () => {
+    if (appIsReady) {
+      // This tells the splash screen to hide immediately! If we call this after
+      // `setAppIsReady`, then we may see a blank screen while the app is
+      // loading its initial state and rendering its first pixels. So instead,
+      // we hide the splash screen once we know the root view has already
+      // performed layout.
+      await SplashScreen.hideAsync();
+    }
+  }, [appIsReady]);
 
   useEffect(() => {
     // Initialize RevenueCat
@@ -52,31 +70,27 @@ export default function RootLayout() {
     }
   }, []);
 
-  if (!loaded) {
+  if (!appIsReady) {
     return null;
   }
 
+
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <AuthProvider>
         <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
           <Drawer
             drawerContent={(props) => <CustomDrawerContent {...props} />}
             screenOptions={{
               headerShown: false,
-              drawerStyle: {
-                backgroundColor: '#0a0a0a',
-                width: 280,
-              },
               drawerType: 'front',
-              overlayColor: 'rgba(0,0,0,0.8)',
             }}
           >
             <Drawer.Screen name="(tabs)" options={{ headerShown: false, drawerLabel: 'Home' }} />
             <Drawer.Screen name="feed" options={{ headerShown: false, drawerLabel: 'Feed' }} />
             <Drawer.Screen name="profile" options={{ headerShown: false, drawerLabel: 'Profile' }} />
           </Drawer>
-          <StatusBar style="auto" />
+          <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} translucent backgroundColor="transparent" />
         </ThemeProvider>
       </AuthProvider>
     </GestureHandlerRootView>

@@ -1,16 +1,18 @@
+import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import { LinearGradient } from 'expo-linear-gradient';
 import React, { useEffect } from 'react';
 import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import Animated, {
+import {
     interpolate,
     useAnimatedStyle,
     useSharedValue,
     withRepeat,
     withTiming
 } from 'react-native-reanimated';
+import Svg, { Circle, Defs, Path, Pattern, Rect } from 'react-native-svg';
 
 const formatNumber = (num: number | string | undefined) => {
     if (!num) return '0';
@@ -48,6 +50,8 @@ type CharacterCardProps = {
 export default function CharacterCard({ name, description, specialization, likes, followers, comments, imageUrl, isSale, isVerified, width: propWidth, height: propHeight, onPress, onMessagePress }: CharacterCardProps) {
     const [isLoaded, setIsLoaded] = React.useState(false);
     const shimmerValue = useSharedValue(0);
+    const colorScheme = useColorScheme();
+    const themeColors = Colors[colorScheme ?? 'light'];
 
     useEffect(() => {
         shimmerValue.value = withRepeat(
@@ -66,181 +70,200 @@ export default function CharacterCard({ name, description, specialization, likes
 
     const cardStyle = [
         styles.card,
+        { backgroundColor: themeColors.card, borderColor: themeColors.border },
         propWidth ? { width: propWidth } : null,
-        propHeight ? { height: propHeight } : null,
     ];
 
     return (
         <Pressable style={cardStyle} onPress={onPress}>
-            {!isLoaded && (
-                <View style={[StyleSheet.absoluteFill, styles.skeletonContainer]}>
-                    <Animated.View style={[styles.shimmer, shimmerStyle]}>
-                        <LinearGradient
-                            colors={['transparent', 'rgba(255,255,255,0.1)', 'transparent']}
-                            start={{ x: 0, y: 0 }}
-                            end={{ x: 1, y: 0 }}
-                            style={StyleSheet.absoluteFill}
-                        />
-                    </Animated.View>
-                </View>
-            )}
-            <Image
-                source={{ uri: imageUrl }}
-                style={styles.image}
-                contentFit="cover"
-                transition={300}
-                onLoad={() => setIsLoaded(true)}
-            />
-            <LinearGradient
-                colors={['transparent', 'rgba(0,0,0,0.8)', 'rgba(0,0,0,1)']}
-                style={styles.gradient}
-            >
-                <Text style={styles.name}>{name}</Text>
-                {specialization ? (
-                    <Text style={styles.specialization}>{specialization}</Text>
-                ) : null}
-                <Text style={styles.description} numberOfLines={2}>{description}</Text>
+            {/* Vector Background Pattern */}
+            <View style={StyleSheet.absoluteFill}>
+                <Svg height="100%" width="100%" style={{ opacity: 0.6 }}>
+                    <Defs>
+                        <Pattern
+                            id="techPattern"
+                            patternUnits="userSpaceOnUse"
+                            x="0"
+                            y="0"
+                            width="40"
+                            height="40"
+                        >
+                            {/* Angled Lines */}
+                            <Path
+                                d="M0 40 L40 0 M-10 10 L10 -10 M30 50 L50 30"
+                                stroke={themeColors.text}
+                                strokeWidth="0.5"
+                                opacity={colorScheme === 'dark' ? 0.08 : 0.04}
+                            />
 
-                <View style={styles.statsRow}>
-                    <View style={styles.stat}>
-                        <Ionicons name="heart" size={12} color="#fff" />
-                        <Text style={styles.statText}>{formatNumber(likes)}</Text>
-                    </View>
-                    <View style={styles.stat}>
-                        <Ionicons name="people" size={12} color="#fff" />
-                        <Text style={styles.statText}>{formatNumber(followers)}</Text>
-                    </View>
-                    <View style={styles.stat}>
-                        <Ionicons name="chatbubble" size={12} color="#fff" />
-                        <Text style={styles.statText}>{formatNumber(comments)}</Text>
+                            {/* Small Dots */}
+                            <Circle cx="35" cy="35" r="1.5" fill={themeColors.text} opacity={colorScheme === 'dark' ? 0.08 : 0.04} />
+                        </Pattern>
+                    </Defs>
+                    <Rect x="0" y="0" width="100%" height="100%" fill="url(#techPattern)" />
+                </Svg>
+            </View>
+
+            <View style={styles.contentContainer}>
+                <View style={styles.headerRow}>
+                    <View style={styles.nameContainer}>
+                        <Image
+                            source={{ uri: imageUrl }}
+                            style={[styles.avatar, { borderColor: themeColors.text }]}
+                            contentFit="cover"
+                        />
+                        <Text style={[styles.name, { color: themeColors.text }]} numberOfLines={1}>{name}</Text>
                     </View>
                     {isVerified && (
-                        <MaterialIcons name="verified" size={16} color="#0095f6" style={{ marginLeft: 'auto' }} />
+                        <MaterialIcons name="verified" size={16} color={themeColors.text} />
                     )}
                 </View>
 
-                <View style={styles.buttonRow}>
-                    <TouchableOpacity style={[styles.actionButton, styles.profileBtn]} onPress={onPress}>
-                        <Text style={styles.buttonText}>View Profile</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity style={[styles.actionButton, styles.messageBtn]} onPress={onMessagePress}>
-                        <Text style={styles.buttonText}>Message</Text>
-                    </TouchableOpacity>
-                </View>
-            </LinearGradient>
+                {specialization ? (
+                    <Text style={[styles.specialization, { color: themeColors.icon }]}>{specialization}</Text>
+                ) : null}
 
-            {isSale && (
-                <View style={styles.saleBadge}>
-                    <Text style={styles.saleText}>75% OFF</Text>
+                <Text style={[styles.description, { color: themeColors.tabIconDefault }]} numberOfLines={2}>
+                    {description}
+                </Text>
+
+                <View style={styles.statsRow}>
+                    <View style={styles.stat}>
+                        <Ionicons name="heart-outline" size={14} color={themeColors.text} />
+                        <Text style={[styles.statText, { color: themeColors.text }]}>{formatNumber(likes)}</Text>
+                    </View>
+                    <View style={styles.stat}>
+                        <Ionicons name="chatbubble-outline" size={14} color={themeColors.text} />
+                        <Text style={[styles.statText, { color: themeColors.text }]}>{formatNumber(comments)}</Text>
+                    </View>
                 </View>
-            )}
+
+                <View style={styles.buttonRow}>
+                    <TouchableOpacity
+                        style={[styles.actionButton, { borderColor: themeColors.border, borderWidth: 1 }]}
+                        onPress={onPress}
+                    >
+                        <Text style={[styles.buttonText, { color: themeColors.text }]}>Profile</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.actionButton, { backgroundColor: themeColors.text }]}
+                        onPress={onMessagePress}
+                    >
+                        <Text style={[styles.buttonText, { color: themeColors.background }]}>Message</Text>
+                    </TouchableOpacity>
+                </View>
+            </View>
         </Pressable>
     );
 }
 
 const styles = StyleSheet.create({
     card: {
-        borderRadius: 12,
+        borderRadius: 0,
         overflow: 'hidden',
-        backgroundColor: '#1a1a1a', // Darker background for skeleton
+        borderWidth: 1,
+        marginBottom: 16,
+    },
+    imageContainer: {
+        width: '100%',
+        aspectRatio: 1,
+        position: 'relative',
     },
     skeletonContainer: {
-        backgroundColor: '#222',
-        overflow: 'hidden',
+        backgroundColor: '#E5E5E5',
     },
     shimmer: {
-        width: '200%',
+        width: '100%',
         height: '100%',
-        position: 'absolute',
+        backgroundColor: 'rgba(255,255,255,0.5)',
     },
     image: {
         width: '100%',
         height: '100%',
     },
-    gradient: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
-        padding: 16,
-        paddingTop: 60,
+    contentContainer: {
+        padding: 12,
+    },
+    headerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 8,
+    },
+    nameContainer: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginRight: 4,
+    },
+    avatar: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        marginRight: 8,
+        borderWidth: 1,
     },
     name: {
-        color: '#fff',
-        fontSize: 28,
-        marginBottom: 2,
-        fontFamily: Fonts.bold,
-        lineHeight: 34,
+        fontSize: 16,
+        fontWeight: '600',
+        fontFamily: Fonts.heading,
+        flex: 1,
     },
     specialization: {
-        color: '#ccc',
         fontSize: 12,
-        marginBottom: 4,
+        marginBottom: 6,
         fontFamily: Fonts.body,
-        lineHeight: 16,
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
     description: {
-        color: '#aa48b7',
-        fontSize: 13,
-        marginBottom: 8,
-        lineHeight: 18,
+        fontSize: 14,
+        marginBottom: 12,
+        lineHeight: 20,
         fontFamily: Fonts.body,
     },
     statsRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'flex-start', // Changed to flex-start + gap? No, keep logic but allow auto margin
+        gap: 16,
+        marginBottom: 16,
     },
     stat: {
         flexDirection: 'row',
         alignItems: 'center',
-        marginRight: 12,
+        gap: 4,
     },
     statText: {
-        color: '#fff', // White explicitly requested? "icons same color white" was previous request. Text color usually matches or is light grey.
-        // User asked "give these icons same color white". I did that.
-        // Now "reduce font size of the stats".
-        fontSize: 13,
-        marginLeft: 4,
+        fontSize: 12,
         fontFamily: Fonts.body,
     },
     saleBadge: {
         position: 'absolute',
-        top: 10,
-        left: 10,
-        backgroundColor: '#ff4b91',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 4,
+        top: 8,
+        left: 8,
+        paddingHorizontal: 6,
+        paddingVertical: 2,
+        borderRadius: 2,
     },
     saleText: {
-        color: '#fff',
         fontSize: 10,
+        fontWeight: 'bold',
         fontFamily: Fonts.bold,
     },
     buttonRow: {
         flexDirection: 'row',
         gap: 8,
-        marginTop: 12,
     },
     actionButton: {
         flex: 1,
-        paddingVertical: 8,
-        borderRadius: 8,
+        paddingVertical: 10,
+        borderRadius: 4,
         alignItems: 'center',
         justifyContent: 'center',
     },
-    profileBtn: {
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.3)',
-    },
-    messageBtn: {
-        backgroundColor: '#aa48b7',
-    },
     buttonText: {
-        color: '#fff',
         fontSize: 12,
+        fontWeight: '600',
         fontFamily: Fonts.bold,
     },
 });

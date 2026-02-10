@@ -4,6 +4,7 @@ import firestore from '@react-native-firebase/firestore';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import React, { createContext, useContext, useEffect, useState } from 'react';
+import { Alert } from 'react-native';
 import Purchases from 'react-native-purchases';
 import RevenueCatUI, { PAYWALL_RESULT } from "react-native-purchases-ui";
 
@@ -14,6 +15,7 @@ interface AuthContextType {
     signOut: () => Promise<void>;
     deleteAccount: () => Promise<void>;
     presentPaywall: () => Promise<void>;
+    restorePurchases: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -47,17 +49,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // This ensures the UI updates immediately even before the extension syncs to Firestore
         const customerInfoListener = Purchases.addCustomerInfoUpdateListener((info) => {
             console.log('RevenueCat: CustomerInfo updated', info.entitlements.active);
-            if (user) {
-                syncSubscriptionStatus(user.uid);
+            // We use a safe way to check auth().currentUser since 'user' in closure might be stale
+            const currentUid = auth().currentUser?.uid;
+            if (currentUid) {
+                syncSubscriptionStatus(currentUid);
             }
         });
 
         return () => {
             subscriber();
-            // Clean up listener
-            // Note: addCustomerInfoUpdateListener returns a function in some versions, 
-            // but in newer react-native-purchases it might handle it differently.
-            // Following standard practice for event listeners.
+            // Purchases.addCustomerInfoUpdateListener in some versions returns void, 
+            // the listener is global. If it returns something, we should clean it up.
+            // But to avoid lint errors if it's void, we skip manual cleanup of void.
         };
     }, []);
 
@@ -81,7 +84,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         setUserData(doc.data());
                     } else {
                         // Fallback for existing users without documents
-                        setUserData({ credits: 5, plan: 'Free' });
+                        // Pro-Tip: Avoid 'Dreamer' fallback if we are just waiting for the trigger
+                        setUserData({ credits: 5, planType: 'Free', userName: 'Loading...' });
                     }
                 }, (error) => {
                     console.error('Firestore snapshot error:', error);
@@ -89,7 +93,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         } catch (error) {
             console.warn('Firestore not available (likely missing native modules):', error);
             // Provide fallback data so the app doesn't crash in Expo Go
-            setUserData({ credits: 5, plan: 'Free' });
+            setUserData({ credits: 5, planType: 'Free', userName: 'User' });
         }
 
         return unsubscribeSnapshot;
@@ -140,6 +144,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     await user.reauthenticateWithCredential(appleCredential);
                 }
             }
+
+            // 1.5 Delete Firestore document client-side BEFORE Auth deletion
+            // This prevents the race condition between onUserDelete and onUserCreate
+            // (When UID is recycled quickly)
+            console.log('deleteAccount: Initializing client-side Firestore cleanup');
+            await firestore().collection('users').doc(uid).delete();
 
             // 2. Delete Auth user 
             // Note: The Firestore document cleanup is now handled by the 'onUserDelete' Cloud Function
@@ -204,12 +214,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 amount: '$19.99', // Placeholder or fetch from RC
                 date: firestore.Timestamp.now(),
                 status: 'Completed',
-                description: 'Premium Subscription (1,000 Credits Bonus)'
+                description: 'Premium Subscription'
             };
 
-            // 1. Add 1000 credits, set plan to Premium, and add to payment history array
+            // 1. Set plan to Premium, and add to payment history array
             await userRef.update({
-                credits: firestore.FieldValue.increment(1000),
                 planType: 'Premium',
                 paymentHistory: firestore.FieldValue.arrayUnion(newPayment),
                 lastPurchaseAt: firestore.FieldValue.serverTimestamp(),
@@ -253,8 +262,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    const restorePurchases = async () => {
+        try {
+            console.log('restorePurchases: Starting...');
+            const customerInfo = await Purchases.restorePurchases();
+            console.log('restorePurchases: Result:', customerInfo.entitlements.active);
+
+            if (user) {
+                await auth().currentUser?.getIdToken(true);
+                await syncSubscriptionStatus(user.uid);
+                Alert.alert('Success', 'Purchases restored successfully.');
+            }
+        } catch (error: any) {
+            console.error('restorePurchases: Error:', error);
+            Alert.alert('Restore Failed', error.message || 'An error occurred during restore.');
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, userData, isLoading, signOut, deleteAccount, presentPaywall }}>
+        <AuthContext.Provider value={{ user, userData, isLoading, signOut, deleteAccount, presentPaywall, restorePurchases }}>
             <NotificationHandler />
             {children}
         </AuthContext.Provider>

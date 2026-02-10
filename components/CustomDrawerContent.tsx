@@ -1,10 +1,12 @@
 import Logo from '@/components/Logo';
+import { Colors } from '@/constants/Colors';
 import { useAuth } from '@/context/AuthContext';
+import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import { DrawerItem } from '@react-navigation/drawer';
 import { useRouter, useSegments } from 'expo-router';
 import React from 'react';
-import { StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Linking, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Fonts } from '@/constants/Fonts';
@@ -15,6 +17,9 @@ export default function CustomDrawerContent(props: any) {
     const segments = useSegments() as string[];
     const insets = useSafeAreaInsets();
     const { user, userData, presentPaywall } = useAuth();
+    const colorScheme = useColorScheme();
+    const themeColors = Colors[colorScheme ?? 'light'];
+    const [showMoreModal, setShowMoreModal] = React.useState(false);
 
     const navigateTo = (route: string) => {
         router.push(route as any);
@@ -23,7 +28,7 @@ export default function CustomDrawerContent(props: any) {
     const isExploreActive = segments.length === 0 || segments.includes('explore') || (segments.includes('(tabs)') && !['chat', 'community', 'my-ai', 'create'].some(s => segments.includes(s)));
 
     return (
-        <View style={{ flex: 1, backgroundColor: '#000', borderRightWidth: 1, borderRightColor: '#aa48b7' }}>
+        <View style={{ flex: 1, backgroundColor: themeColors.background, borderRightWidth: 1, borderRightColor: themeColors.border }}>
             <View
                 {...props}
                 contentContainerStyle={{ paddingTop: 0 }}
@@ -41,88 +46,120 @@ export default function CustomDrawerContent(props: any) {
                 <View style={styles.menuSection}>
                     <DrawerItem
                         label="Explore"
-                        labelStyle={[styles.drawerLabel, isExploreActive && { color: '#aa48b7' }]}
-                        icon={({ size }) => <Ionicons name={isExploreActive ? "compass" : "compass-outline"} size={size} color={isExploreActive ? '#aa48b7' : '#fff'} />}
+                        labelStyle={[styles.drawerLabel, isExploreActive && { fontWeight: '700' }, { color: themeColors.text }]}
+                        icon={({ size }) => <Ionicons name={isExploreActive ? "compass" : "compass-outline"} size={size} color={themeColors.text} />}
                         onPress={() => navigateTo('/(tabs)')}
-                        style={[styles.drawerItem, isExploreActive && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
+                        style={[styles.drawerItem, isExploreActive && { backgroundColor: themeColors.border }]}
                     />
                     <DrawerItem
                         label="Chats"
-                        labelStyle={[styles.drawerLabel, segments.includes('chat') && { color: '#aa48b7' }]}
-                        icon={({ size }) => <Ionicons name={segments.includes('chat') ? "chatbubble-ellipses" : "chatbubble-ellipses-outline"} size={size} color={segments.includes('chat') ? '#aa48b7' : '#fff'} />}
+                        labelStyle={[styles.drawerLabel, segments.includes('chat') && { fontWeight: '700' }, { color: themeColors.text }]}
+                        icon={({ size }) => <Ionicons name={segments.includes('chat') ? "chatbubble-ellipses" : "chatbubble-ellipses-outline"} size={size} color={themeColors.text} />}
                         onPress={() => navigateTo('/(tabs)/chat')}
-                        style={[styles.drawerItem, segments.includes('chat') && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
+                        style={[styles.drawerItem, segments.includes('chat') && { backgroundColor: themeColors.border }]}
                     />
                     <DrawerItem
                         label="Create"
-                        labelStyle={[styles.drawerLabel, segments.includes('create') && { color: '#aa48b7' }]}
-                        icon={({ size }) => <Ionicons name={segments.includes('create') ? "add-circle" : "add-circle-outline"} size={size} color={segments.includes('create') ? '#aa48b7' : '#fff'} />}
+                        labelStyle={[styles.drawerLabel, segments.includes('create') && { fontWeight: '700' }, { color: themeColors.text }]}
+                        icon={({ size }) => <Ionicons name={segments.includes('create') ? "add-circle" : "add-circle-outline"} size={size} color={themeColors.text} />}
                         onPress={() => navigateTo('/(tabs)/create')}
-                        style={[styles.drawerItem, segments.includes('create') && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
+                        style={[styles.drawerItem, segments.includes('create') && { backgroundColor: themeColors.border }]}
                     />
                     <DrawerItem
-                        label="Community"
-                        labelStyle={[styles.drawerLabel, segments.includes('community') && { color: '#aa48b7' }]}
-                        icon={({ size }) => <Ionicons name={segments.includes('community') ? "people" : "people-outline"} size={size} color={segments.includes('community') ? '#aa48b7' : '#fff'} />}
+                        label="Ranks"
+                        labelStyle={[styles.drawerLabel, segments.includes('community') && { fontWeight: '700' }, { color: themeColors.text }]}
+                        icon={({ size }) => <Ionicons name={segments.includes('community') ? "trophy" : "trophy-outline"} size={size} color={themeColors.text} />}
                         onPress={() => navigateTo('/(tabs)/community')}
-                        style={[styles.drawerItem, segments.includes('community') && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
+                        style={[styles.drawerItem, segments.includes('community') && { backgroundColor: themeColors.border }]}
                     />
                     <DrawerItem
                         label="My AI"
-                        labelStyle={[styles.drawerLabel, segments.includes('my-ai') && { color: '#aa48b7' }]}
-                        icon={({ size }) => <Ionicons name={segments.includes('my-ai') ? "sparkles" : "sparkles-outline"} size={size} color={segments.includes('my-ai') ? '#aa48b7' : '#fff'} />}
+                        labelStyle={[styles.drawerLabel, segments.includes('my-ai') && { fontWeight: '700' }, { color: themeColors.text }]}
+                        icon={({ size }) => <Ionicons name={segments.includes('my-ai') ? "sparkles" : "sparkles-outline"} size={size} color={themeColors.text} />}
                         onPress={() => navigateTo('/(tabs)/my-ai')}
-                        style={[styles.drawerItem, segments.includes('my-ai') && { backgroundColor: 'rgba(129, 114, 153, 0.2)' }]}
+                        style={[styles.drawerItem, segments.includes('my-ai') && { backgroundColor: themeColors.border }]}
                     />
-                    
+
                 </View>
 
                 {/* Dynamic Upgrade/Auth Button */}
                 <View style={styles.upgradeContainer}>
                     {!user ? (
                         <TouchableOpacity
-                            style={styles.authButton}
+                            style={[styles.authButton, { borderColor: themeColors.text, backgroundColor: 'transparent' }]}
                             onPress={() => navigateTo('/profile')}
                         >
-                            <Ionicons name="person-add-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-                            <Text style={styles.upgradeText}>Login or Join free</Text>
+                            <Ionicons name="person-add-outline" size={20} color={themeColors.text} style={{ marginRight: 8 }} />
+                            <Text style={[styles.upgradeText, { color: themeColors.text }]}>Login or Join free</Text>
                         </TouchableOpacity>
                     ) : userData?.planType === 'Premium' ? (
                         <PremiumBadge size="large" />
                     ) : (
-                        <TouchableOpacity style={styles.upgradeButton} onPress={presentPaywall}>
-                            <Ionicons name="diamond-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
-                            <Text style={styles.upgradeText}>Upgrade</Text>
+                        <TouchableOpacity style={[styles.upgradeButton, { backgroundColor: themeColors.text }]} onPress={presentPaywall}>
+                            <Ionicons name="diamond-outline" size={20} color={themeColors.background} style={{ marginRight: 8 }} />
+                            <Text style={[styles.upgradeText, { color: themeColors.background }]}>Upgrade</Text>
                         </TouchableOpacity>
                     )}
                 </View>
             </View>
 
             {/* Footer */}
-            <View style={[styles.footer, { paddingBottom: insets.bottom + 10 }]}>
-                <TouchableOpacity style={styles.footerItem} onPress={() => navigateTo('/profile')}>
-                    <Ionicons name="person-outline" size={20} color="#aaa" />
-                    <Text style={styles.footerText}>Profile</Text>
+            <View style={[styles.footer, { paddingBottom: insets.bottom + 10, borderTopColor: themeColors.border }]}>
+                <TouchableOpacity style={[styles.footerItem, { borderColor: themeColors.border }]} onPress={() => navigateTo('/profile')}>
+                    <Ionicons name="person-outline" size={20} color={themeColors.text} />
+                    <Text style={[styles.footerText, { color: themeColors.text }]}>Profile</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.footerItem} onPress={() => navigateTo('/profile')}>
-                    <Ionicons name="headset-outline" size={20} color="#aaa" />
-                    <Text style={styles.footerText}>Support</Text>
+                <TouchableOpacity style={[styles.footerItem, { borderColor: themeColors.border }]} onPress={() => Linking.openURL('https://zonix-ai.vercel.app/#/support')}>
+                    <Ionicons name="headset-outline" size={20} color={themeColors.text} />
+                    <Text style={[styles.footerText, { color: themeColors.text }]}>Support</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.footerItem} onPress={() => navigateTo('https://discord.gg/YJBwagY5z7')}>
-                    <Ionicons name="logo-discord" size={20} color="#aaa" />
-                    <Text style={styles.footerText}>Discord</Text>
+                <TouchableOpacity style={[styles.footerItem, { borderColor: themeColors.border }]} onPress={() => Linking.openURL('https://discord.gg/YJBwagY5z7')}>
+                    <Ionicons name="logo-discord" size={20} color={themeColors.text} />
+                    <Text style={[styles.footerText, { color: themeColors.text }]}>Discord</Text>
                 </TouchableOpacity>
-                <View style={styles.footerItem}>
-                    <Ionicons name="ellipsis-horizontal" size={20} color="#aaa" />
-                    <Text style={styles.footerText}>More</Text>
-                </View>
+                <TouchableOpacity style={[styles.footerItem, { borderColor: themeColors.border }]} onPress={() => setShowMoreModal(true)}>
+                    <Ionicons name="ellipsis-horizontal" size={20} color={themeColors.text} />
+                    <Text style={[styles.footerText, { color: themeColors.text }]}>More</Text>
+                </TouchableOpacity>
 
                 <View style={styles.legalSection}>
-                    <Text style={styles.legalText}>TERMS & POLICIES</Text>
-                    <Text style={styles.legalText}>AI COACH TYPES</Text>
-                    <Text style={styles.legalText}>2026 ZONIX</Text>
+                    <TouchableOpacity onPress={() => Linking.openURL('https://zonix-ai.vercel.app/#/terms')}>
+                        <Text style={[styles.legalText, { color: themeColors.icon }]}>TERMS & CONDITIONS</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => Linking.openURL('https://zonix-ai.vercel.app/#/privacy')}>
+                        <Text style={[styles.legalText, { color: themeColors.icon }]}>PRIVACY POLICY</Text>
+                    </TouchableOpacity>
+                    <Text style={[styles.legalText, { color: themeColors.icon }]}>2026 ZONIX</Text>
                 </View>
             </View>
+
+            {/* More Modal */}
+            <Modal
+                transparent
+                visible={showMoreModal}
+                animationType="fade"
+                onRequestClose={() => setShowMoreModal(false)}
+            >
+                <TouchableOpacity
+                    style={styles.modalOverlay}
+                    activeOpacity={1}
+                    onPress={() => setShowMoreModal(false)}
+                >
+                    <View style={[styles.modalContent, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}>
+                        <TouchableOpacity
+                            style={styles.modalItem}
+                            onPress={() => {
+                                setShowMoreModal(false);
+                                Linking.openURL('https://zonix-ai.vercel.app/#/');
+                            }}
+                        >
+                            <Ionicons name="globe-outline" size={24} color={themeColors.text} />
+                            <Text style={[styles.modalText, { color: themeColors.text }]}>Website</Text>
+                            <Ionicons name="open-outline" size={16} color={themeColors.icon} style={{ marginLeft: 'auto' }} />
+                        </TouchableOpacity>
+                    </View>
+                </TouchableOpacity>
+            </Modal>
         </View>
     );
 }
@@ -138,7 +175,7 @@ const styles = StyleSheet.create({
     },
     sectionSeparator: {
         height: 1,
-        backgroundColor: '#222',
+        backgroundColor: '#E5E5E5',
         marginHorizontal: 20,
         marginBottom: 10,
     },
@@ -160,7 +197,7 @@ const styles = StyleSheet.create({
         marginBottom: 20,
     },
     upgradeButton: {
-        backgroundColor: '#aa48b7',
+        // backgroundColor: '#aa48b7',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -168,9 +205,9 @@ const styles = StyleSheet.create({
         borderRadius: 8,
     },
     authButton: {
-        backgroundColor: '#222',
+        // backgroundColor: '#222',
         borderWidth: 1,
-        borderColor: '#aa48b7',
+        // borderColor: '#aa48b7',
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
@@ -217,9 +254,35 @@ const styles = StyleSheet.create({
         marginTop: 20,
     },
     legalText: {
-        color: '#555',
         fontSize: 10,
-        marginBottom: 4,
+        marginBottom: 8,
         fontFamily: Fonts.body,
-    }
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContent: {
+        width: '80%',
+        borderRadius: 12,
+        padding: 20,
+        borderWidth: 1,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 3.84,
+    },
+    modalItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        gap: 12,
+    },
+    modalText: {
+        fontSize: 16,
+        fontFamily: Fonts.body,
+    },
 });
