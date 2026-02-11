@@ -167,7 +167,7 @@ export default function ChatScreen() {
             activeOpacity={0.7}
         >
             <Image
-                source={{ uri: item.coach.portraitUrl || 'https://images.unsplash.com/photo-1542385151-efd9000785a0?q=80&w=3000&auto=format&fit=crop' }}
+                source={{ uri: item.coach.portraitUrl || 'https://images.unsplash.com/photo-1675897634504-bf03f1a2a66a?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' }}
                 style={[styles.avatar, { borderColor: themeColors.border }]}
                 contentFit="cover"
             />

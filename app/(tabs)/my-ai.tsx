@@ -77,7 +77,20 @@ export default function MyAIScreen() {
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            await firestore().collection('coaches').doc(coachId).delete();
+                            // Recursive deletion for 'knowledgeChunks' subcollection
+                            const coachRef = firestore().collection('coaches').doc(coachId);
+                            const chunksSnapshot = await coachRef.collection('knowledgeChunks').get();
+
+                            const batch = firestore().batch();
+                            chunksSnapshot.forEach(doc => {
+                                batch.delete(doc.ref);
+                            });
+
+                            // Delete the coach document itself
+                            batch.delete(coachRef);
+
+                            await batch.commit();
+
                             setCoaches(prev => prev.filter(c => c.id !== coachId));
                         } catch (error) {
                             console.error('Error deleting coach:', error);
@@ -102,7 +115,7 @@ export default function MyAIScreen() {
                     likes={item.stats?.likes ?? (Array.isArray(item.likedBy) ? item.likedBy.length : (item.likes || 0))}
                     followers={item.stats?.follows ?? (Array.isArray(item.follows) ? item.follows.length : (item.follows || item.followers || 0))}
                     comments={item.stats?.chats ?? (item.chatCount || 0)}
-                    imageUrl={item.portraitUrl || 'https://images.unsplash.com/photo-1542385151-efd9000785a0?q=80&w=3000&auto=format&fit=crop'}
+                    imageUrl={item.portraitUrl || 'https://images.unsplash.com/photo-1675897634504-bf03f1a2a66a?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D'}
                     isVerified={item.isVerified}
                     width={cardWidth}
                     height={cardWidth * 1.5}

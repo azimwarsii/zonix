@@ -8,6 +8,8 @@ import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons } from '@expo/vector-icons';
 import firestore from '@react-native-firebase/firestore';
 import storage from '@react-native-firebase/storage';
+import * as DocumentPicker from 'expo-document-picker';
+import * as FileSystem from 'expo-file-system/legacy';
 import { Image } from 'expo-image';
 import * as ImagePicker from 'expo-image-picker';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,6 +27,13 @@ import {
     View
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+
+
+const CHAR_LIMITS = {
+    PRIMARY_GREETING: 300,
+    WHO_AM_I: 1000,
+    KNOWLEDGE_BASE: 20000
+};
 
 const EXPERTISE_OPTIONS = [
     "Business Strategy", "Life Coaching", "Software Engineering",
@@ -144,6 +153,46 @@ export default function EditCoachScreen() {
             keyboardDidShowListener.remove();
         };
     }, []);
+
+    const handleDocumentUpload = async () => {
+        try {
+            const result = await DocumentPicker.getDocumentAsync({
+                type: ['text/plain', 'text/markdown', 'application/json'],
+                copyToCacheDirectory: true
+            });
+
+            if (result.canceled) return;
+
+            const file = result.assets[0];
+            // Check file size (e.g., limit to 1MB to prevent freezing)
+            if (file.size && file.size > 1024 * 1024) {
+                Alert.alert('File too large', 'Please select a text file under 1MB.');
+                return;
+            }
+
+            const content = await FileSystem.readAsStringAsync(file.uri);
+
+            // Check if adding this content exceeds the limit
+            if (knowledgeBaseText.length + content.length > CHAR_LIMITS.KNOWLEDGE_BASE) {
+                Alert.alert(
+                    'Limit Exceeded',
+                    `This file is too large. It would exceed the ${CHAR_LIMITS.KNOWLEDGE_BASE} character limit.`
+                );
+                return;
+            }
+
+            setKnowledgeBaseText(prev => {
+                const separator = prev ? '\n\n' : '';
+                return prev + separator + content;
+            });
+
+            Alert.alert('Success', 'Document content added to Knowledge Base.');
+
+        } catch (error) {
+            console.error('Error reading document:', error);
+            Alert.alert('Error', 'Failed to read document content.');
+        }
+    };
 
     const handleEssenceSelect = (label: string, value: string) => {
         setEssences(prev => ({ ...prev, [label]: value }));
@@ -496,12 +545,16 @@ export default function EditCoachScreen() {
                                     </View>
                                     <TextInput
                                         multiline
+                                        maxLength={CHAR_LIMITS.PRIMARY_GREETING}
                                         style={[styles.textArea, { color: themeColors.text, backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1, minHeight: 150 }]}
                                         value={primaryGreeting}
                                         onChangeText={setPrimaryGreeting}
                                         placeholder="Type your greeting here..."
                                         placeholderTextColor={themeColors.icon}
                                     />
+                                    <ThemedText style={{ alignSelf: 'flex-end', marginTop: 8, color: themeColors.icon, fontSize: 12 }}>
+                                        {primaryGreeting.length}/{CHAR_LIMITS.PRIMARY_GREETING}
+                                    </ThemedText>
                                 </View>
                             )}
                             {activeAdvancedModal === 'Knowledge Base' && (
@@ -515,14 +568,27 @@ export default function EditCoachScreen() {
                                             </ThemedText>
                                         </View>
                                     </View>
+
+                                    <TouchableOpacity
+                                        style={[styles.uploadButton, { borderColor: themeColors.border, backgroundColor: themeColors.card }]}
+                                        onPress={handleDocumentUpload}
+                                    >
+                                        <Ionicons name="document-text-outline" size={20} color={themeColors.tint} />
+                                        <ThemedText style={{ color: themeColors.text, fontFamily: Fonts.bold }}>Upload Text Document</ThemedText>
+                                    </TouchableOpacity>
+
                                     <TextInput
                                         multiline
+                                        maxLength={CHAR_LIMITS.KNOWLEDGE_BASE}
                                         style={[styles.textArea, { color: themeColors.text, backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1, height: 300 }]}
                                         value={knowledgeBaseText}
                                         onChangeText={setKnowledgeBaseText}
                                         placeholder="Paste or type knowledge content here..."
                                         placeholderTextColor={themeColors.icon}
                                     />
+                                    <ThemedText style={{ alignSelf: 'flex-end', marginTop: 8, color: themeColors.icon, fontSize: 12 }}>
+                                        {knowledgeBaseText.length}/{CHAR_LIMITS.KNOWLEDGE_BASE}
+                                    </ThemedText>
                                 </View>
                             )}
                             {activeAdvancedModal === 'Who Am I?' && (
@@ -538,12 +604,16 @@ export default function EditCoachScreen() {
                                     </View>
                                     <TextInput
                                         multiline
+                                        maxLength={CHAR_LIMITS.WHO_AM_I}
                                         style={[styles.textArea, { color: themeColors.text, backgroundColor: themeColors.background, borderColor: themeColors.border, borderWidth: 1, minHeight: 150 }]}
                                         value={whoAmI}
                                         onChangeText={setWhoAmI}
                                         placeholder="Type your bio here..."
                                         placeholderTextColor={themeColors.icon}
                                     />
+                                    <ThemedText style={{ alignSelf: 'flex-end', marginTop: 8, color: themeColors.icon, fontSize: 12 }}>
+                                        {whoAmI.length}/{CHAR_LIMITS.WHO_AM_I}
+                                    </ThemedText>
                                 </View>
                             )}
                             {activeAdvancedModal === 'Social Links' && (
@@ -812,5 +882,15 @@ const styles = StyleSheet.create({
     backButtonText: {
         fontSize: 16,
         fontFamily: Fonts.body,
+    },
+    uploadButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: 12,
+        borderRadius: 8,
+        borderWidth: 1,
+        marginBottom: 16,
+        gap: 8,
     },
 });

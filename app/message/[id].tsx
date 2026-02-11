@@ -41,43 +41,63 @@ export default function MessageScreen() {
     const [messages, setMessages] = useState<any[]>([]);
     const [showMenu, setShowMenu] = useState(false);
     const [isTyping, setIsTyping] = useState(false);
+    const [coachExists, setCoachExists] = useState(true);
 
     const colorScheme = useColorScheme();
     const themeColors = Colors[colorScheme ?? 'light'];
     const insets = useSafeAreaInsets();
     const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
 
+    const [keyboardHeight, setKeyboardHeight] = useState(0);
+
     useEffect(() => {
-        const showSub = Keyboard.addListener(
-            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-            () => setIsKeyboardVisible(true)
-        );
-        const hideSub = Keyboard.addListener(
-            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-            () => setIsKeyboardVisible(false)
-        );
-        return () => {
-            showSub.remove();
-            hideSub.remove();
-        };
+        if (Platform.OS === 'android') {
+            const showSub = Keyboard.addListener('keyboardDidShow', (e) => {
+                setIsKeyboardVisible(true);
+                setKeyboardHeight(e.endCoordinates.height);
+            });
+            const hideSub = Keyboard.addListener('keyboardDidHide', () => {
+                setIsKeyboardVisible(false);
+                setKeyboardHeight(0);
+            });
+            return () => {
+                showSub.remove();
+                hideSub.remove();
+            };
+        } else {
+            const showSub = Keyboard.addListener('keyboardWillShow', () => setIsKeyboardVisible(true));
+            const hideSub = Keyboard.addListener('keyboardWillHide', () => setIsKeyboardVisible(false));
+            return () => {
+                showSub.remove();
+                hideSub.remove();
+            };
+        }
     }, []);
 
     useEffect(() => {
-        const fetchCoach = async () => {
-            if (!id) return;
-            try {
-                const doc = await firestore().collection('coaches').doc(id as string).get();
-                // @ts-ignore
-                if (doc.exists) {
-                    setCoach(doc.data());
-                }
-            } catch (error) {
-                console.error('Error fetching coach:', error);
-            } finally {
-                setLoading(false);
+        if (!id) return;
+
+        console.log(`[MessageScreen] Listening for coach ${id}`);
+        const unsubscribe = firestore().collection('coaches').doc(id as string).onSnapshot(doc => {
+            // Check if exists is a function (older/compat SDKs) or property
+            // @ts-ignore
+            const exists = typeof doc.exists === 'function' ? doc.exists() : doc.exists;
+
+            console.log(`[MessageScreen] Snapshot received. Exists: ${exists}`);
+
+            if (exists) {
+                setCoach(doc.data());
+                setCoachExists(true);
+            } else {
+                setCoachExists(false);
             }
-        };
-        fetchCoach();
+            setLoading(false);
+        }, error => {
+            console.error('[MessageScreen] Error fetching coach:', error);
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
     }, [id]);
 
     useEffect(() => {
@@ -242,6 +262,104 @@ export default function MessageScreen() {
         );
     };
 
+    const renderChatContent = () => (
+        <>
+            {/* Header */}
+            <View style={[styles.header, { borderBottomColor: themeColors.border, backgroundColor: themeColors.background }]}>
+                <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                    <Ionicons name="arrow-back" size={24} color={themeColors.text} />
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={styles.headerContent}
+                    onPress={() => router.push({ pathname: '/coach/[id]', params: { id: id as string } })}
+                    activeOpacity={0.7}
+                >
+                    <Image
+                        source={{ uri: coach?.portraitUrl || 'https://images.unsplash.com/photo-1675897634504-bf03f1a2a66a?q=80&w=1740&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D' }}
+                        style={[styles.avatar, { borderColor: themeColors.border }]}
+                        contentFit="cover"
+                    />
+                    <View>
+                        <ThemedText style={[styles.headerName, { color: themeColors.text }]}>{coach?.name || 'Coach'}</ThemedText>
+                        <ThemedText style={[styles.headerStatus, { color: coachExists ? 'green' : themeColors.icon }]}>
+                            {coachExists ? 'Online' : 'Offline'}
+                        </ThemedText>
+                    </View>
+                </TouchableOpacity>
+
+                {/* Minimalist Coin Badge for non-Premium users */}
+                {userData?.planType !== 'Premium' && (
+                    <TouchableOpacity
+                        style={[styles.coinsBadge, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+                        activeOpacity={0.7}
+                        onPress={() => presentPaywall()}
+                    >
+                        <Ionicons name="sparkles" size={14} color="#FFD700" />
+                        <ThemedText style={[styles.coinsText, { color: themeColors.text }]}>
+                            {`${userData?.credits || 0} credits`}
+                        </ThemedText>
+                    </TouchableOpacity>
+                )}
+
+                <TouchableOpacity style={styles.menuButton} onPress={() => setShowMenu(true)}>
+                    <Ionicons name="ellipsis-vertical" size={24} color={themeColors.text} />
+                </TouchableOpacity>
+            </View>
+
+            {/* Chat Area */}
+            <FlatList
+                data={messages}
+                renderItem={renderMessage}
+                keyExtractor={item => item.id}
+                inverted
+                ListHeaderComponent={renderHeader}
+                ListFooterComponent={renderFooter}
+                contentContainerStyle={styles.messageList}
+            />
+
+            {/* Input Area */}
+            <View style={[
+                styles.inputContainer,
+                {
+                    backgroundColor: themeColors.background,
+                    borderTopColor: themeColors.border,
+                    paddingBottom: Math.max(insets.bottom, 12)
+                }
+            ]}>
+                <TextInput
+                    style={[
+                        styles.input,
+                        {
+                            backgroundColor: themeColors.card,
+                            color: themeColors.text,
+                            borderColor: themeColors.border,
+                            opacity: coachExists ? 1 : 0.6
+                        }
+                    ]}
+                    placeholder={coachExists ? "Type a message..." : "Coach is offline"}
+                    placeholderTextColor={themeColors.icon}
+                    value={messageText}
+                    onChangeText={setMessageText}
+                    multiline
+                    editable={coachExists}
+                />
+                <TouchableOpacity
+                    style={[
+                        styles.sendButton,
+                        {
+                            backgroundColor: themeColors.text,
+                            opacity: coachExists ? 1 : 0.5
+                        }
+                    ]}
+                    onPress={handleSend}
+                    disabled={!coachExists}
+                >
+                    <Ionicons name="send" size={18} color={themeColors.background} />
+                </TouchableOpacity>
+            </View>
+        </>
+    );
+
     if (loading) {
         return (
             <View style={[styles.centered, { backgroundColor: themeColors.background }]}>
@@ -273,97 +391,29 @@ export default function MessageScreen() {
                                 <Ionicons name="flag-outline" size={20} color={themeColors.text} />
                                 <ThemedText style={[styles.menuText, { color: themeColors.text }]}>Report</ThemedText>
                             </TouchableOpacity>
-                            <TouchableOpacity style={[styles.menuItem, styles.deleteItem, { borderTopColor: themeColors.border }]} onPress={handleDeleteChat}>
+                            {/* <TouchableOpacity style={[styles.menuItem, styles.deleteItem, { borderTopColor: themeColors.border }]} onPress={handleDeleteChat}>
                                 <Ionicons name="trash-outline" size={20} color="#ff4b4b" />
                                 <ThemedText style={[styles.menuText, styles.deleteText]}>Delete Chat</ThemedText>
-                            </TouchableOpacity>
+                            </TouchableOpacity> */}
                         </View>
                     </View>
                 </TouchableWithoutFeedback>
             </Modal>
             {/* Content wrapped to avoid keyboard */}
-            <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                style={{ flex: 1 }}
-                keyboardVerticalOffset={0}
-            >
-                {/* Header */}
-                <View style={[styles.header, { borderBottomColor: themeColors.border, backgroundColor: themeColors.background }]}>
-                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-                        <Ionicons name="arrow-back" size={24} color={themeColors.text} />
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        style={styles.headerContent}
-                        onPress={() => router.push({ pathname: '/coach/[id]', params: { id: id as string } })}
-                        activeOpacity={0.7}
-                    >
-                        <Image
-                            source={{ uri: coach?.portraitUrl || 'https://images.unsplash.com/photo-1542385151-efd9000785a0?q=80&w=3000&auto=format&fit=crop' }}
-                            style={[styles.avatar, { borderColor: themeColors.border }]}
-                            contentFit="cover"
-                        />
-                        <View>
-                            <ThemedText style={[styles.headerName, { color: themeColors.text }]}>{coach?.name || 'Coach'}</ThemedText>
-                            <ThemedText style={[styles.headerStatus, { color: 'green' }]}>Online</ThemedText>
-                        </View>
-                    </TouchableOpacity>
-
-                    {/* Minimalist Coin Badge for non-Premium users */}
-                    {userData?.planType !== 'Premium' && (
-                        <TouchableOpacity
-                            style={[styles.coinsBadge, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
-                            activeOpacity={0.7}
-                            onPress={() => presentPaywall()}
-                        >
-                            <Ionicons name="sparkles" size={14} color="#FFD700" />
-                            <ThemedText style={[styles.coinsText, { color: themeColors.text }]}>
-                                {`${userData?.credits || 0}`}
-                            </ThemedText>
-                        </TouchableOpacity>
-                    )}
-
-                    <TouchableOpacity style={styles.menuButton} onPress={() => setShowMenu(true)}>
-                        <Ionicons name="ellipsis-vertical" size={24} color={themeColors.text} />
-                    </TouchableOpacity>
+            {Platform.OS === 'ios' ? (
+                <KeyboardAvoidingView
+                    behavior="padding"
+                    style={{ flex: 1 }}
+                    keyboardVerticalOffset={0}
+                >
+                    {renderChatContent()}
+                </KeyboardAvoidingView>
+            ) : (
+                <View style={{ flex: 1, paddingBottom: keyboardHeight }}>
+                    {renderChatContent()}
                 </View>
-
-                {/* Chat Area */}
-                <FlatList
-                    data={messages}
-                    renderItem={renderMessage}
-                    keyExtractor={item => item.id}
-                    inverted
-                    ListHeaderComponent={renderHeader}
-                    ListFooterComponent={renderFooter}
-                    contentContainerStyle={styles.messageList}
-                />
-
-                {/* Input Area */}
-                <View style={[
-                    styles.inputContainer,
-                    {
-                        backgroundColor: themeColors.background,
-                        borderTopColor: themeColors.border,
-                        paddingBottom: Math.max(insets.bottom, 12)
-                    }
-                ]}>
-                    <TextInput
-                        style={[styles.input, { backgroundColor: themeColors.card, color: themeColors.text, borderColor: themeColors.border }]}
-                        placeholder="Type a message..."
-                        placeholderTextColor={themeColors.icon}
-                        value={messageText}
-                        onChangeText={setMessageText}
-                        multiline
-                    />
-                    <TouchableOpacity
-                        style={[styles.sendButton, { backgroundColor: themeColors.text }]}
-                        onPress={handleSend}
-                    >
-                        <Ionicons name="send" size={18} color={themeColors.background} />
-                    </TouchableOpacity>
-                </View>
-            </KeyboardAvoidingView>
-        </SafeAreaView>
+            )}
+        </SafeAreaView >
     );
 }
 
@@ -382,7 +432,7 @@ const styles = StyleSheet.create({
         paddingHorizontal: 16,
         paddingVertical: 12,
         borderBottomWidth: 1,
-        paddingTop: Platform.OS === 'android' ? 40 : 12,
+        paddingTop: Platform.OS === 'android' ? 20 : 12,
         zIndex: 10,
     },
     backButton: {
@@ -464,6 +514,8 @@ const styles = StyleSheet.create({
         alignItems: 'flex-end',
         paddingHorizontal: 16,
         paddingTop: 12,
+
+        marginBottom: Platform.OS === 'android' ? 16 : 0,
         borderTopWidth: 1,
     },
     input: {

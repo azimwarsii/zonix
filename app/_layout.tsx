@@ -58,9 +58,9 @@ export default function RootLayout() {
     // Initialize RevenueCat
     Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
 
-    //const iosApiKey = 'appl_eAvndgscosrWeRfQhjEnNEIROOX';
+    const iosApiKey = 'appl_eAvndgscosrWeRfQhjEnNEIROOX';
 
-    const iosApiKey = 'test_MlPRLBjvIJNMYolhzdIiSRrtnmz';
+    //const iosApiKey = 'test_MlPRLBjvIJNMYolhzdIiSRrtnmz';
     const androidApiKey = 'goog_wklPZQCeqRvPgHDvmEZWOxByWEz';
 
     if (Platform.OS === 'ios') {
