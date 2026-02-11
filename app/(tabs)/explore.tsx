@@ -120,7 +120,7 @@ const ExploreHeader = ({
   const themeColors = Colors[colorScheme ?? 'light'];
 
   return (
-    <View style={{ backgroundColor: themeColors.card, paddingBottom: 12, marginBottom: 16 }}>
+    <View style={{ backgroundColor: themeColors.card, paddingBottom: 0, marginBottom: 5 }}>
       <Header />
 
       {/* Merged Search & Specialization Bar */}
@@ -411,12 +411,14 @@ export default function ExploreScreen() {
       <OnboardingOverlay />
 
 
-      {/* Main List - Handles both Content and Loading/Empty states to keep Header visible */}
+      {/* Fixed Header */}
+      {headerElement}
+
+      {/* Main List - Handles Content */}
       <FlatList
         data={((loading || isInitialLoad) && coaches.length === 0) ? [1, 2, 3, 4, 5, 6] : coaches}
         numColumns={2}
         keyExtractor={(item) => typeof item === 'number' ? `skeleton-${item}` : item.id}
-        ListHeaderComponent={headerElement}
         ListFooterComponent={renderFooter}
         ListEmptyComponent={(!loading && !isInitialLoad) ? renderEmpty : null}
         showsVerticalScrollIndicator={false}
