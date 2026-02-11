@@ -345,6 +345,7 @@ export default function EditCoachScreen() {
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
             >
                 {/* Back Button */}
                 <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
@@ -383,7 +384,10 @@ export default function EditCoachScreen() {
                 {/* Specialization - Clean Selector */}
                 <TouchableOpacity
                     style={[styles.inputGroup, { borderBottomWidth: 1, borderBottomColor: validationErrors.includes('expertise') ? '#ef4444' : themeColors.border }]}
-                    onPress={() => setShowExpertisePicker(true)}
+                    onPress={() => {
+                        Keyboard.dismiss();
+                        setShowExpertisePicker(true);
+                    }}
                 >
                     <ThemedText style={[styles.selectorText, { color: expertise ? themeColors.text : (validationErrors.includes('expertise') ? '#ef4444' : themeColors.icon) }]}>
                         {expertise || "Select Specialization"}
@@ -407,6 +411,7 @@ export default function EditCoachScreen() {
                                     }
                                 ]}
                                 onPress={() => {
+                                    Keyboard.dismiss();
                                     setActiveEssencePicker(key);
                                     if (validationErrors.includes(key)) setValidationErrors(prev => prev.filter(err => err !== key));
                                 }}
@@ -423,7 +428,10 @@ export default function EditCoachScreen() {
                 {/* Advanced Toggle - Minimal Text */}
                 <TouchableOpacity
                     style={styles.advancedToggle}
-                    onPress={() => setShowAdvanced(!showAdvanced)}
+                    onPress={() => {
+                        Keyboard.dismiss();
+                        setShowAdvanced(!showAdvanced);
+                    }}
                 >
                     <ThemedText
                         numberOfLines={1}

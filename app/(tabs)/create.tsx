@@ -399,6 +399,7 @@ export default function CreateScreen() {
             <ScrollView
                 contentContainerStyle={styles.scrollContent}
                 showsVerticalScrollIndicator={false}
+                keyboardShouldPersistTaps="handled"
             >
 
                 {/* Portrait - Minimal Circle */}
@@ -432,7 +433,10 @@ export default function CreateScreen() {
                 {/* Specialization - Clean Selector */}
                 <TouchableOpacity
                     style={[styles.inputGroup, { borderBottomWidth: 1, borderBottomColor: validationErrors.includes('expertise') ? '#ef4444' : themeColors.border }]}
-                    onPress={() => setShowExpertisePicker(true)}
+                    onPress={() => {
+                        Keyboard.dismiss();
+                        setShowExpertisePicker(true);
+                    }}
                 >
                     <ThemedText style={[styles.selectorText, { color: expertise ? themeColors.text : (validationErrors.includes('expertise') ? '#ef4444' : themeColors.icon) }]}>
                         {expertise || "Select Specialization"}
@@ -456,6 +460,7 @@ export default function CreateScreen() {
                                     }
                                 ]}
                                 onPress={() => {
+                                    Keyboard.dismiss();
                                     setActiveEssencePicker(key);
                                     if (validationErrors.includes(key)) setValidationErrors(prev => prev.filter(err => err !== key));
                                 }}
@@ -472,7 +477,10 @@ export default function CreateScreen() {
                 {/* Advanced Toggle - Minimal Text */}
                 <TouchableOpacity
                     style={styles.advancedToggle}
-                    onPress={() => setShowAdvanced(!showAdvanced)}
+                    onPress={() => {
+                        Keyboard.dismiss();
+                        setShowAdvanced(!showAdvanced);
+                    }}
                 >
                     <ThemedText
                         numberOfLines={1}

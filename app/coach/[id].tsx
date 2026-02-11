@@ -8,7 +8,6 @@ import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import firestore from '@react-native-firebase/firestore';
 import functions from '@react-native-firebase/functions';
 import { Image } from 'expo-image';
-import * as Linking from 'expo-linking';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import React, { useEffect, useState } from 'react';
 import {
@@ -114,12 +113,9 @@ export default function CoachProfileScreen() {
 
     const handleShare = async () => {
         try {
-            // Generates a deep link like "zonix://coach/123" or "exp://..."
-            // This resolves the issue of redirecting to `zonix.app` (which is likely a squatted domain)
-            // and instead uses the app's configured scheme (`zonix://`).
-            // `Linking.createURL` handles both Expo Go and standalone builds.
-            const shareUrl = Linking.createURL(`/coach/${id}`);
-            const message = `Check out ${coach?.name} on Zonix! An AI Coach specialized in ${coach?.specialization}.\n\n${shareUrl}`;
+            // Use the user's website for clickable links (requires website to handle redirect or deep linking)
+            const shareUrl = `https://zonix-ai.vercel.app/coach/${id}`;
+            const message = `Check out ${coach?.name} on Zonix! An AI Coach specialized in ${coach?.specialization}.\n\n- \n`;
 
             await Share.share({
                 message: message,
