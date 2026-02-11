@@ -23,7 +23,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from './themed-text';
 
-const ONBOARDING_KEY = 'has_seen_onboarding_v5';
+const ONBOARDING_KEY = 'has_seen_onboarding_v44';
 
 interface Step {
     title: string;
@@ -120,12 +120,8 @@ export default function OnboardingOverlay() {
     const tabWidth = width / 5;
     const centerX = (step.targetTab * tabWidth) + (tabWidth / 2);
 
-    // Dynamic position calculation to match TabLayout's height: 60 + insets.bottom
-    const tabBarHeight = 60 + insets.bottom;
-    const tabIconY = height - tabBarHeight + 25; // 20px down from tab bar top (8px padding + 12px icon half-height)
-
     return (
-        <Modal transparent visible={visible} animationType="fade">
+        <Modal transparent visible={visible} animationType="fade" statusBarTranslucent>
             <View style={[styles.overlay, { backgroundColor: colorScheme === 'dark' ? 'rgba(0,0,0,0.85)' : 'rgba(255,255,255,0.92)' }]}>
                 {/* Skip Button */}
                 <TouchableOpacity
@@ -176,10 +172,13 @@ export default function OnboardingOverlay() {
                 {/* Spotlight Circle and Cloned Icon - Making the tab visible */}
                 <View style={[styles.spotlight, {
                     left: centerX - 30,
-                    top: tabIconY - 30,
+                    bottom: insets.bottom, // Aligns with tab bar area roughly
                     backgroundColor: colorScheme === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.05)'
                 }]} />
-                <View style={[styles.iconClone, { left: centerX - 12, top: tabIconY - 12 }]}>
+                <View style={[styles.iconClone, {
+                    left: centerX - 12,
+                    bottom: insets.bottom + 20 // Centered in the 60px high tab area (approx)
+                }]}>
                     <Ionicons name={step.icon} size={24} color={themeColors.text} />
                 </View>
 
@@ -189,7 +188,7 @@ export default function OnboardingOverlay() {
                         styles.arrowContainer,
                         {
                             left: centerX - 15,
-                            top: tabIconY - 80
+                            bottom: insets.bottom + 70 // Positioned nicely above the tab bar
                         },
                         animatedArrowStyle
                     ]}

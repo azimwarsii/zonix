@@ -3,15 +3,8 @@ import { Fonts } from '@/constants/Fonts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { Image } from 'expo-image';
-import React, { useEffect } from 'react';
+import React from 'react';
 import { Pressable, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
-import {
-    interpolate,
-    useAnimatedStyle,
-    useSharedValue,
-    withRepeat,
-    withTiming
-} from 'react-native-reanimated';
 import Svg, { Circle, Defs, Path, Pattern, Rect } from 'react-native-svg';
 
 const formatNumber = (num: number | string | undefined) => {
@@ -48,25 +41,8 @@ type CharacterCardProps = {
 };
 
 export default function CharacterCard({ name, description, specialization, likes, followers, comments, imageUrl, isSale, isVerified, width: propWidth, height: propHeight, onPress, onMessagePress }: CharacterCardProps) {
-    const [isLoaded, setIsLoaded] = React.useState(false);
-    const shimmerValue = useSharedValue(0);
     const colorScheme = useColorScheme();
     const themeColors = Colors[colorScheme ?? 'light'];
-
-    useEffect(() => {
-        shimmerValue.value = withRepeat(
-            withTiming(1, { duration: 1500 }),
-            -1,
-            false
-        );
-    }, []);
-
-    const shimmerStyle = useAnimatedStyle(() => {
-        const translateX = interpolate(shimmerValue.value, [0, 1], [-propWidth! || -200, propWidth! || 200]);
-        return {
-            transform: [{ translateX }],
-        };
-    });
 
     const cardStyle = [
         styles.card,
@@ -111,6 +87,9 @@ export default function CharacterCard({ name, description, specialization, likes
                             source={{ uri: imageUrl }}
                             style={[styles.avatar, { borderColor: themeColors.text }]}
                             contentFit="cover"
+                            cachePolicy="memory-disk"
+                            transition={200}
+                            priority="high"
                         />
                         <Text style={[styles.name, { color: themeColors.text }]} numberOfLines={1}>{name}</Text>
                     </View>
@@ -169,18 +148,7 @@ const styles = StyleSheet.create({
         aspectRatio: 1,
         position: 'relative',
     },
-    skeletonContainer: {
-        backgroundColor: '#E5E5E5',
-    },
-    shimmer: {
-        width: '100%',
-        height: '100%',
-        backgroundColor: 'rgba(255,255,255,0.5)',
-    },
-    image: {
-        width: '100%',
-        height: '100%',
-    },
+    // Removed unused skeleton/shimmer styles
     contentContainer: {
         padding: 12,
     },
