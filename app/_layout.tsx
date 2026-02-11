@@ -4,10 +4,14 @@ import { Drawer } from 'expo-router/drawer';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
-import { Platform, View } from 'react-native';
+import { LogBox, Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import 'react-native-reanimated';
+
+LogBox.ignoreLogs([
+  'Text strings must be rendered within a <Text> component',
+]);
 
 import AnimatedSplashScreen from '@/components/AnimatedSplashScreen';
 import CustomDrawerContent from '@/components/CustomDrawerContent';

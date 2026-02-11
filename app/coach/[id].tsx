@@ -14,6 +14,7 @@ import {
     ActivityIndicator,
     Alert,
     Dimensions,
+    Platform,
     ScrollView,
     Share,
     StyleSheet,
@@ -115,7 +116,9 @@ export default function CoachProfileScreen() {
         try {
             // Use the user's website for clickable links (requires website to handle redirect or deep linking)
             const shareUrl = `https://zonix-ai.vercel.app/coach/${id}`;
-            const message = `Check out ${coach?.name} on Zonix! An AI Coach specialized in ${coach?.specialization}.\n\n- \n`;
+            const message = Platform.OS === 'android'
+                ? `Check out ${coach?.name} on Zonix! An AI Coach specialized in ${coach?.specialization}.\n\n-${shareUrl}\n`
+                : `Check out ${coach?.name} on Zonix! An AI Coach specialized in ${coach?.specialization}.\n\n-\n`;
 
             await Share.share({
                 message: message,

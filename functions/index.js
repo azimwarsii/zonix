@@ -426,7 +426,7 @@ exports.createCoach = functions.runWith({ secrets: ['OPENAI_API_KEY'] }).https.o
                 essence,
                 advanced: {
                     primaryGreeting: advanced?.primaryGreeting || "Hello! How can I help you today?",
-                    whoAmI: type === 'imaginative' ? (advanced?.whoAmI || "") : null,
+                    whoAmI: advanced?.whoAmI || "",
                     socialLinks: advanced?.socialLinks || {}
                 },
                 knowledge: {

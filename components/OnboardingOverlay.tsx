@@ -23,7 +23,7 @@ import Animated, {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from './themed-text';
 
-const ONBOARDING_KEY = 'has_seen_onboarding_v44';
+const ONBOARDING_KEY = 'has_seen_onboarding_1';
 
 interface Step {
     title: string;

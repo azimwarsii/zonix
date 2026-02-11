@@ -147,7 +147,7 @@ export default function CreateScreen() {
                     onPress: async () => {
                         const result = await ImagePicker.launchCameraAsync({
                             allowsEditing: true,
-                            aspect: [2, 3],
+                            aspect: [1, 1],
                             quality: 0.8,
                         });
                         if (!result.canceled) setPortraitImage(result.assets[0].uri);
@@ -158,7 +158,7 @@ export default function CreateScreen() {
                     onPress: async () => {
                         const result = await ImagePicker.launchImageLibraryAsync({
                             allowsEditing: true,
-                            aspect: [2, 3],
+                            aspect: [1, 1],
                             quality: 0.8,
                         });
                         if (!result.canceled) setPortraitImage(result.assets[0].uri);
