@@ -4,11 +4,12 @@ import { Drawer } from 'expo-router/drawer';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useCallback, useEffect, useState } from 'react';
-import { Platform } from 'react-native';
+import { Platform, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import Purchases, { LOG_LEVEL } from 'react-native-purchases';
 import 'react-native-reanimated';
 
+import AnimatedSplashScreen from '@/components/AnimatedSplashScreen';
 import CustomDrawerContent from '@/components/CustomDrawerContent';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -19,18 +20,16 @@ SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
-
-
   const [appIsReady, setAppIsReady] = useState(false);
+  const [splashAnimationFinished, setSplashAnimationFinished] = useState(false);
 
   useEffect(() => {
     async function prepare() {
       try {
         // Pre-load fonts, make any API calls you need to do here
-        // await Font.loadAsync(Entypo.font);
+        // await Font.loadAsync({ ... });
 
-        // Artificially delay for two seconds to simulate a slow loading
-        // experience. Remove this if you copy and paste the code!
+        // Artificially delay for one second to simulate preparation
         await new Promise(resolve => setTimeout(resolve, 1000));
       } catch (e) {
         console.warn(e);
@@ -45,11 +44,7 @@ export default function RootLayout() {
 
   const onLayoutRootView = useCallback(async () => {
     if (appIsReady) {
-      // This tells the splash screen to hide immediately! If we call this after
-      // `setAppIsReady`, then we may see a blank screen while the app is
-      // loading its initial state and rendering its first pixels. So instead,
-      // we hide the splash screen once we know the root view has already
-      // performed layout.
+      // This tells the splash screen to hide immediately!
       await SplashScreen.hideAsync();
     }
   }, [appIsReady]);
@@ -58,13 +53,7 @@ export default function RootLayout() {
     // Initialize RevenueCat
     Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
 
-    //const iosApiKey = 'test_MlPRLBjvIJNMYolhzdIiSRrtnmz';
-
-
-    const iosApiKey = 'appl_eAvndgscosrWeRfQhjEnNEIROOX'; //need change
-
-    //const androidApiKey = 'test_MlPRLBjvIJNMYolhzdIiSRrtnmz';
-
+    const iosApiKey = 'appl_eAvndgscosrWeRfQhjEnNEIROOX';
     const androidApiKey = 'goog_wklPZQCeqRvPgHDvmEZWOxByWEz';
 
     if (Platform.OS === 'ios') {
@@ -74,27 +63,32 @@ export default function RootLayout() {
     }
   }, []);
 
-  if (!appIsReady) {
-    return null;
-  }
-
-
   return (
     <GestureHandlerRootView style={{ flex: 1 }} onLayout={onLayoutRootView}>
       <SafeAreaProvider>
         <AuthProvider>
           <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-            <Drawer
-              drawerContent={(props) => <CustomDrawerContent {...props} />}
-              screenOptions={{
-                headerShown: false,
-                drawerType: 'front',
-              }}
-            >
-              <Drawer.Screen name="(tabs)" options={{ headerShown: false, drawerLabel: 'Home' }} />
-              <Drawer.Screen name="feed" options={{ headerShown: false, drawerLabel: 'Feed' }} />
-              <Drawer.Screen name="profile" options={{ headerShown: false, drawerLabel: 'Profile' }} />
-            </Drawer>
+            <View style={{ flex: 1 }}>
+              {appIsReady && (
+                <Drawer
+                  drawerContent={(props) => <CustomDrawerContent {...props} />}
+                  screenOptions={{
+                    headerShown: false,
+                    drawerType: 'front',
+                  }}
+                >
+                  <Drawer.Screen name="(tabs)" options={{ headerShown: false, drawerLabel: 'Home' }} />
+                  <Drawer.Screen name="feed" options={{ headerShown: false, drawerLabel: 'Feed' }} />
+                  <Drawer.Screen name="profile" options={{ headerShown: false, drawerLabel: 'Profile' }} />
+                </Drawer>
+              )}
+
+              {!splashAnimationFinished && (
+                <AnimatedSplashScreen
+                  onAnimationFinish={() => setSplashAnimationFinished(true)}
+                />
+              )}
+            </View>
             <StatusBar style={colorScheme === 'dark' ? 'light' : 'dark'} translucent backgroundColor="transparent" />
           </ThemeProvider>
         </AuthProvider>

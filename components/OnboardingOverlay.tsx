@@ -1,3 +1,4 @@
+
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -5,12 +6,11 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import React, { useEffect, useState } from 'react';
 import {
-    Dimensions,
     Modal,
-    Platform,
     StyleSheet,
     TouchableOpacity,
     View,
+    useWindowDimensions
 } from 'react-native';
 import Animated, {
     FadeIn,
@@ -22,8 +22,6 @@ import Animated, {
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { ThemedText } from './themed-text';
-
-const { width, height } = Dimensions.get('window');
 
 const ONBOARDING_KEY = 'has_seen_onboarding_v5';
 
@@ -68,6 +66,7 @@ const STEPS: Step[] = [
 ];
 
 export default function OnboardingOverlay() {
+    const { width, height } = useWindowDimensions();
     const [visible, setVisible] = useState(false);
     const [currentStep, setCurrentStep] = useState(0);
     const insets = useSafeAreaInsets();
@@ -121,9 +120,9 @@ export default function OnboardingOverlay() {
     const tabWidth = width / 5;
     const centerX = (step.targetTab * tabWidth) + (tabWidth / 2);
 
-    // Position of the icon in the tab bar (approximate)
-    const tabIconY = height - (Platform.OS === 'android' ? -10 : (insets.bottom > 0 ? insets.bottom + 30 : 38));
-    const tabAreaHeight = 60 + insets.bottom;
+    // Dynamic position calculation to match TabLayout's height: 60 + insets.bottom
+    const tabBarHeight = 60 + insets.bottom;
+    const tabIconY = height - tabBarHeight + 25; // 20px down from tab bar top (8px padding + 12px icon half-height)
 
     return (
         <Modal transparent visible={visible} animationType="fade">
@@ -141,7 +140,11 @@ export default function OnboardingOverlay() {
                     key={`card-${currentStep}`}
                     entering={FadeIn.duration(400)}
                     exiting={FadeOut.duration(400)}
-                    style={[styles.card, { backgroundColor: themeColors.card, borderColor: themeColors.border }]}
+                    style={[styles.card, {
+                        backgroundColor: themeColors.card,
+                        borderColor: themeColors.border,
+                        width: width * 0.85
+                    }]}
                 >
                     <ThemedText style={[styles.title, { color: themeColors.text }]}>{step.title}</ThemedText>
                     <ThemedText style={[styles.description, { color: themeColors.icon }]}>{step.description}</ThemedText>
@@ -215,7 +218,6 @@ const styles = StyleSheet.create({
         letterSpacing: 2,
     },
     card: {
-        width: width * 0.85,
         borderRadius: 24,
         padding: 32,
         borderWidth: 1,
