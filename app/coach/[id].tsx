@@ -1,3 +1,4 @@
+import AuthModal from '@/components/AuthModal';
 import { ThemedText } from '@/components/themed-text';
 import { Colors } from '@/constants/Colors';
 import { Fonts } from '@/constants/Fonts';
@@ -55,6 +56,8 @@ export default function CoachProfileScreen() {
     } : null);
 
     const [loading, setLoading] = useState(!initialName);
+    const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
+    const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
     const [isLiked, setIsLiked] = useState(false);
     const [isFollowing, setIsFollowing] = useState(false);
     const [likeCount, setLikeCount] = useState(0);
@@ -104,6 +107,11 @@ export default function CoachProfileScreen() {
         fetchCoach();
     }, [id, user]);
 
+    const openAuthModal = (mode: 'login' | 'signup') => {
+        setAuthMode(mode);
+        setIsAuthModalVisible(true);
+    };
+
     const handleShare = async () => {
         try {
             // Generates a deep link like "zonix://coach/123" or "exp://..."
@@ -125,7 +133,7 @@ export default function CoachProfileScreen() {
 
     const handleLike = async () => {
         if (!user) {
-            Alert.alert('Sign In', 'Please sign in to like this coach.');
+            openAuthModal('signup');
             return;
         }
         const newStatus = !isLiked;
@@ -153,7 +161,7 @@ export default function CoachProfileScreen() {
 
     const handleFollow = () => {
         if (!user) {
-            Alert.alert('Sign In', 'Please sign in to follow this coach.');
+            openAuthModal('signup');
             return;
         }
         setIsFollowing(!isFollowing);
@@ -163,7 +171,7 @@ export default function CoachProfileScreen() {
 
     const handleChat = () => {
         if (!user) {
-            Alert.alert('Sign In', 'Please sign in to start chatting.');
+            openAuthModal('signup');
             return;
         }
         router.push(`/message/${id}`);
@@ -303,6 +311,12 @@ export default function CoachProfileScreen() {
                     )}
                 </View>
             </ScrollView>
+
+            <AuthModal
+                isVisible={isAuthModalVisible}
+                onClose={() => setIsAuthModalVisible(false)}
+                mode={authMode}
+            />
         </SafeAreaView>
     );
 }

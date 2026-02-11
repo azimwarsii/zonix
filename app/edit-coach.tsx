@@ -376,7 +376,12 @@ export default function EditCoachScreen() {
                     style={styles.advancedToggle}
                     onPress={() => setShowAdvanced(!showAdvanced)}
                 >
-                    <ThemedText style={[styles.advancedToggleText, { color: themeColors.tint }]}>{showAdvanced ? "Hide Advanced" : "Advanced Details"}</ThemedText>
+                    <ThemedText
+                        numberOfLines={1}
+                        style={[styles.advancedToggleText, { color: themeColors.tint }]}
+                    >
+                        {showAdvanced ? "Hide Advanced" : "Advanced Details"}
+                    </ThemedText>
                 </TouchableOpacity>
 
                 {showAdvanced && (
@@ -606,7 +611,7 @@ export default function EditCoachScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingBottom:50
+        paddingBottom: 50
     },
     centered: {
         flex: 1,

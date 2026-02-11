@@ -42,10 +42,15 @@ export default function RootLayout() {
     prepare();
   }, []);
 
+  useEffect(() => {
+    if (appIsReady) {
+      SplashScreen.hideAsync().catch(() => { });
+    }
+  }, [appIsReady]);
+
   const onLayoutRootView = useCallback(async () => {
     if (appIsReady) {
-      // This tells the splash screen to hide immediately!
-      await SplashScreen.hideAsync();
+      await SplashScreen.hideAsync().catch(() => { });
     }
   }, [appIsReady]);
 
@@ -53,7 +58,9 @@ export default function RootLayout() {
     // Initialize RevenueCat
     Purchases.setLogLevel(LOG_LEVEL.VERBOSE);
 
-    const iosApiKey = 'appl_eAvndgscosrWeRfQhjEnNEIROOX';
+    //const iosApiKey = 'appl_eAvndgscosrWeRfQhjEnNEIROOX';
+
+    const iosApiKey = 'test_MlPRLBjvIJNMYolhzdIiSRrtnmz';
     const androidApiKey = 'goog_wklPZQCeqRvPgHDvmEZWOxByWEz';
 
     if (Platform.OS === 'ios') {

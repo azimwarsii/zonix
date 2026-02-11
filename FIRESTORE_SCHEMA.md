@@ -12,7 +12,7 @@ Documents are indexed by the Firebase Authentication `uid`.
 | `userName` | string | Randomly generated unique username (checked for existence). |
 | `email` | string | Primary contact email. |
 | `planType` | string | Current subscription level (e.g., "Free", "Pro"). |
-| `credits` | number | Remaining balance of Coins. |
+| `credits` | number | Remaining balance of Credits. |
 | `paymentHistory` | array | List of payment objects (transaction ID, amount, date). |
 | `redeemedCodes` | array | List of promo codes the user has already redeemed (prevents duplicates). |
 | `persona` | string | Selected user persona. |

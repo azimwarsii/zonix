@@ -1,3 +1,4 @@
+import AuthModal from '@/components/AuthModal';
 import CharacterCard from '@/components/CharacterCard';
 import Header from '@/components/Header';
 import OnboardingOverlay from '@/components/OnboardingOverlay';
@@ -13,7 +14,6 @@ import { Stack, useRouter } from 'expo-router';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
-  Alert,
   Dimensions,
   FlatList,
   Modal,
@@ -246,6 +246,14 @@ export default function ExploreScreen() {
   const [activeAttribute, setActiveAttribute] = useState<string | null>(null);
   const [activeFilterValue, setActiveFilterValue] = useState<string | null>(null);
 
+  const [isAuthModalVisible, setIsAuthModalVisible] = useState(false);
+  const [authMode, setAuthMode] = useState<'login' | 'signup'>('signup');
+
+  const openAuthModal = (mode: 'login' | 'signup') => {
+    setAuthMode(mode);
+    setIsAuthModalVisible(true);
+  };
+
   const fetchCoaches = useCallback(async (isReset = false, isPullToRefresh = false) => {
     if (loading || (loadingMore && !isReset && !isPullToRefresh)) return;
 
@@ -452,7 +460,7 @@ export default function ExploreScreen() {
               })}
               onMessagePress={() => {
                 if (!user) {
-                  Alert.alert('Sign In', 'Please sign in to chat with this coach.');
+                  openAuthModal('signup');
                   return;
                 }
                 router.push({
@@ -562,6 +570,12 @@ export default function ExploreScreen() {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <AuthModal
+        isVisible={isAuthModalVisible}
+        onClose={() => setIsAuthModalVisible(false)}
+        mode={authMode}
+      />
     </SafeAreaView>
   );
 }

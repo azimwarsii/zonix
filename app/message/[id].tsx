@@ -283,16 +283,20 @@ export default function MessageScreen() {
             </Modal>
             {/* Content wrapped to avoid keyboard */}
             <KeyboardAvoidingView
-                behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+                behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 style={{ flex: 1 }}
-                keyboardVerticalOffset={Platform.OS === 'android' ? 0 : 0}
+                keyboardVerticalOffset={0}
             >
                 {/* Header */}
                 <View style={[styles.header, { borderBottomColor: themeColors.border, backgroundColor: themeColors.background }]}>
                     <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
                         <Ionicons name="arrow-back" size={24} color={themeColors.text} />
                     </TouchableOpacity>
-                    <View style={styles.headerContent}>
+                    <TouchableOpacity
+                        style={styles.headerContent}
+                        onPress={() => router.push({ pathname: '/coach/[id]', params: { id: id as string } })}
+                        activeOpacity={0.7}
+                    >
                         <Image
                             source={{ uri: coach?.portraitUrl || 'https://images.unsplash.com/photo-1542385151-efd9000785a0?q=80&w=3000&auto=format&fit=crop' }}
                             style={[styles.avatar, { borderColor: themeColors.border }]}
@@ -302,7 +306,7 @@ export default function MessageScreen() {
                             <ThemedText style={[styles.headerName, { color: themeColors.text }]}>{coach?.name || 'Coach'}</ThemedText>
                             <ThemedText style={[styles.headerStatus, { color: 'green' }]}>Online</ThemedText>
                         </View>
-                    </View>
+                    </TouchableOpacity>
 
                     {/* Minimalist Coin Badge for non-Premium users */}
                     {userData?.planType !== 'Premium' && (
@@ -340,7 +344,7 @@ export default function MessageScreen() {
                     {
                         backgroundColor: themeColors.background,
                         borderTopColor: themeColors.border,
-                        paddingBottom: (isKeyboardVisible || Platform.OS === 'android') ? 15: Math.max(insets.bottom, 5)
+                        paddingBottom: Math.max(insets.bottom, 12)
                     }
                 ]}>
                     <TextInput

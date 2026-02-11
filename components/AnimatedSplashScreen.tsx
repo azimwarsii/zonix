@@ -31,20 +31,20 @@ export default function AnimatedSplashScreen({ onAnimationFinish }: AnimatedSpla
 
     useEffect(() => {
         // 1. Icon Motion Sequence
-        iconOpacity.value = withTiming(1, { duration: 1000 });
+        iconOpacity.value = withTiming(1, { duration: 800 });
         scale.value = withTiming(1, {
-            duration: 1200,
+            duration: 1000,
             easing: Easing.bezier(0.25, 0.1, 0.25, 1)
         }, (finished) => {
             if (finished) {
                 // 2. Text Reveal
-                textY.value = withTiming(0, { duration: 800, easing: Easing.out(Easing.exp) });
-                textOpacity.value = withTiming(1, { duration: 800 });
+                textY.value = withTiming(0, { duration: 600, easing: Easing.out(Easing.exp) });
+                textOpacity.value = withTiming(1, { duration: 600 });
 
                 // 3. Final Exit
                 containerOpacity.value = withDelay(
-                    2000,
-                    withTiming(0, { duration: 600 }, (finished) => {
+                    1200,
+                    withTiming(0, { duration: 500 }, (finished) => {
                         if (finished) {
                             runOnJS(onAnimationFinish)();
                         }
@@ -52,6 +52,13 @@ export default function AnimatedSplashScreen({ onAnimationFinish }: AnimatedSpla
                 );
             }
         });
+
+        // Safety Fallback: Ensure it finishes even if Reanimated callbacks fail
+        const safetyTimer = setTimeout(() => {
+            onAnimationFinish();
+        }, 4500);
+
+        return () => clearTimeout(safetyTimer);
     }, []);
 
     const animatedIconStyle = useAnimatedStyle(() => {

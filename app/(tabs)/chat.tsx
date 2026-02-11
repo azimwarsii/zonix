@@ -290,7 +290,7 @@ export default function ChatScreen() {
                         <ThemedText style={[styles.sectionTitle, { color: themeColors.text }]}>Frequently Asked Questions</ThemedText>
 
                         {[
-                            { id: '1', q: "Are chats free?", a: "Yes, you can chat for free with most coaches. Premium features may require a subscription." },
+                            { id: '1', q: "Are chats free?", a: "New users receive free trial credits to start chatting! After that, you can upgrade for unlimited access." },
                             { id: '2', q: "Can I create my own AI?", a: "Absolutely! Go to the 'Create' tab to build your own Digital Twin." },
                             { id: '3', q: "Is my history saved?", a: "Yes, once you're signed in, your conversation history is saved automatically." }
                         ].map(item => (

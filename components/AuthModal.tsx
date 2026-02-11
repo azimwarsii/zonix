@@ -5,7 +5,7 @@ import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import * as AppleAuthentication from 'expo-apple-authentication';
 import { Image } from 'expo-image';
 import React, { useEffect, useState } from 'react';
-import { Alert, Dimensions, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Alert, Dimensions, Linking, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 
 const { width, height } = Dimensions.get('window');
 
@@ -109,14 +109,18 @@ export default function AuthModal({ isVisible, onClose, mode }: AuthModalProps) 
                             <Text style={styles.googleButtonText}>Continue with Google</Text>
                         </TouchableOpacity>
 
-                        <View style={styles.separatorContainer}>
-                            <View style={styles.separatorLine} />
-                            <Text style={styles.separatorText}>OR</Text>
-                            <View style={styles.separatorLine} />
-                        </View>
+
 
                         {/* Apple Button */}
                         {isAppleAvailable && (
+                            <View style={styles.separatorContainer}>
+                                <View style={styles.separatorLine} />
+                                <Text style={styles.separatorText}>OR</Text>
+                                <View style={styles.separatorLine} />
+                            </View>
+                        )}
+                        {isAppleAvailable && (
+
                             <TouchableOpacity style={styles.appleButton} onPress={handleAppleSignIn}>
                                 <Ionicons name="logo-apple" size={20} color="#fff" style={styles.buttonIcon} />
                                 <Text style={styles.appleButtonText}>Continue with Apple</Text>
@@ -124,7 +128,13 @@ export default function AuthModal({ isVisible, onClose, mode }: AuthModalProps) 
                         )}
 
                         <Text style={styles.footerText}>
-                            By continuing, you confirm that you are over 18 years old and agree to the <Text style={styles.linkText}>Terms and Conditions</Text>
+                            By continuing, you confirm that you are over 18 years old and agree to the{' '}
+                            <Text
+                                style={styles.linkText}
+                                onPress={() => Linking.openURL('https://zonix-ai.vercel.app/#/terms')}
+                            >
+                                Terms and Conditions
+                            </Text>
                         </Text>
                     </View>
                 </View>

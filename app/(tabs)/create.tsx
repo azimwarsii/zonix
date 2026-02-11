@@ -220,8 +220,8 @@ export default function CreateScreen() {
             const credits = userData?.credits || 0;
             if (credits < 5) {
                 Alert.alert(
-                    'Insufficient Coins',
-                    'Forging an AI Coach costs 5 coins. Upgrade to Premium for UNLIMITED forging!',
+                    'Insufficient Credits',
+                    'Forging an AI Coach costs 5 credits. Upgrade to Premium for UNLIMITED forging!',
                     [
                         { text: 'Cancel', style: 'cancel' },
                         { text: 'Upgrade', onPress: () => presentPaywall() }
@@ -237,7 +237,7 @@ export default function CreateScreen() {
                     'Forging this coach will cost 5 coins. Continue?',
                     [
                         { text: 'Cancel', style: 'cancel', onPress: () => resolve(false) },
-                        { text: 'Forge (5 Coins)', onPress: () => resolve(true) }
+                        { text: 'Forge (5 Credits)', onPress: () => resolve(true) }
                     ]
                 );
             });
@@ -425,7 +425,12 @@ export default function CreateScreen() {
                     style={styles.advancedToggle}
                     onPress={() => setShowAdvanced(!showAdvanced)}
                 >
-                    <ThemedText style={[styles.advancedToggleText, { color: themeColors.tint }]}>{showAdvanced ? "Hide Advanced" : "Advanced Details"}</ThemedText>
+                    <ThemedText
+                        numberOfLines={1}
+                        style={[styles.advancedToggleText, { color: themeColors.tint }]}
+                    >
+                        {showAdvanced ? "Hide Advanced" : "Advanced Details"}
+                    </ThemedText>
                 </TouchableOpacity>
 
                 {showAdvanced && (
@@ -455,7 +460,7 @@ export default function CreateScreen() {
                         <ActivityIndicator color={themeColors.background} />
                     ) : (
                         <ThemedText style={[styles.createButtonText, { color: themeColors.background }]}>
-                            {userData?.planType === 'Premium' ? 'Create Coach' : 'Create Coach (5 Coins)'}
+                            {userData?.planType === 'Premium' ? 'Create Coach' : 'Create Coach (5 Credits)'}
                         </ThemedText>
                     )}
                 </TouchableOpacity>
@@ -635,7 +640,7 @@ export default function CreateScreen() {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        paddingBottom:50
+        paddingBottom: 50
     },
     scrollContent: {
         paddingHorizontal: 24,
